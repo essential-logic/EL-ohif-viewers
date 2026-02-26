@@ -51,7 +51,7 @@ import { getUpdatedViewportsForSegmentation } from './utils/hydrationUtils';
 import { SegmentationRepresentations } from '@cornerstonejs/tools/enums';
 import { isMeasurementWithinViewport } from './utils/isMeasurementWithinViewport';
 import { getCenterExtent } from './utils/getCenterExtent';
-import { EasingFunctionEnum } from './utils/transitions';
+import { EasingFunctionEnum, easeInOut } from './utils/transitions';
 import { createSegmentationForViewport } from './utils/createSegmentationForViewport';
 import { utilities as segmentationUtilities } from '@cornerstonejs/tools/segmentation';
 import i18n from '@ohif/i18n';
@@ -1022,20 +1022,21 @@ function commandsModule({
         }
       }
     },
-    setToolActiveToolbar: ({ value, itemId, toolName, toolGroupIds = [], bindings }) => {
+    setToolActiveToolbar: ({ value, itemId, toolName, toolGroupIds = [], bindings, ...options }) => {
       // Sometimes it is passed as value (tools with options), sometimes as itemId (toolbar buttons)
       toolName = toolName || itemId || value;
 
       toolGroupIds = toolGroupIds.length ? toolGroupIds : toolGroupService.getToolGroupIds();
 
       toolGroupIds.forEach(toolGroupId => {
-        actions.setToolActive({ toolName, toolGroupId, bindings });
+        actions.setToolActive({ toolName, toolGroupId, bindings, ...options });
       });
     },
     setToolActive: ({
       toolName,
       toolGroupId = null,
       bindings = [{ mouseButton: Enums.MouseBindings.Primary }],
+      ...options
     }) => {
       const { viewports } = viewportGridService.getState();
 
@@ -1062,9 +1063,10 @@ function commandsModule({
           : toolGroup.setToolPassive(activeToolName);
       }
 
-      // Set the new toolName to be active
+      // Set the new toolName to be active with all provided options (including strategy)
       toolGroup.setToolActive(toolName, {
         bindings,
+        ...options,
       });
     },
     // capture viewport
@@ -1091,7 +1093,8 @@ function commandsModule({
             activeViewportId,
             cornerstoneViewportService,
           },
-          containerClassName: 'max-w-4xl p-4',
+          containerClassName: 'max-w-3xl p-4',
+          contentClassName: 'overflow-hidden',
         });
       }
     },
@@ -1119,7 +1122,8 @@ function commandsModule({
             activeViewportId,
             cornerstoneViewportService,
           },
-          containerClassName: 'max-w-4xl p-4',
+          containerClassName: 'max-w-3xl p-4',
+          contentClassName: 'overflow-hidden',
         });
       }
     },
@@ -2457,9 +2461,83 @@ function commandsModule({
       const renderingEngine = cornerstoneViewportService.getRenderingEngine();
       renderingEngine.render();
     },
+    doubleClickZoom: ({ event }) => {
+      const enabledElement = _getActiveViewportEnabledElement();
+      if (!enabledElement) {
+        return;
+      }
+
+      const { viewport } = enabledElement;
+      const activeToolName = toolGroupService.getActiveToolForViewport(viewport.id);
+
+      if (activeToolName === 'Zoom' && event?.detail?.currentPoints?.world) {
+        const { world: worldPos } = event.detail.currentPoints;
+        const button = event.detail.event.button;
+
+        const currentCamera = viewport.getCamera();
+        const { parallelScale, focalPoint, position } = currentCamera;
+
+        const factor = button === 2 ? 2 : 0.5;
+        const targetParallelScale = parallelScale * factor;
+
+        // To zoom into/out of a specific world point, we calculate the target shift
+        const diff = vec3.sub(vec3.create(), worldPos, focalPoint);
+        const targetFocalPoint = worldPos;
+        const targetPosition = vec3.add(vec3.create(), position as vec3, diff);
+
+        // --- Animation Logic ---
+        const duration = 300; // ms
+        const start = performance.now();
+        const startParallelScale = parallelScale;
+        const startFocalPoint = [...(focalPoint as number[])];
+        const startPosition = [...(position as number[])];
+
+        const animate = (currentTime: number) => {
+          const elapsed = currentTime - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const easedProgress = easeInOut(progress);
+
+          const currentParallelScale =
+            startParallelScale + (targetParallelScale - startParallelScale) * easedProgress;
+
+          const currentFocalPoint = vec3.lerp(
+            vec3.create(),
+            startFocalPoint as vec3,
+            targetFocalPoint as vec3,
+            easedProgress
+          );
+
+          const currentPosition = vec3.lerp(
+            vec3.create(),
+            startPosition as vec3,
+            targetPosition as vec3,
+            easedProgress
+          );
+
+          viewport.setCamera({
+            focalPoint: currentFocalPoint as CoreTypes.Point3,
+            position: currentPosition as CoreTypes.Point3,
+            parallelScale: currentParallelScale,
+          });
+          viewport.render();
+
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          }
+        };
+
+        requestAnimationFrame(animate);
+      } else {
+        // Fallback to layout toggle if Zoom tool isn't the primary tool
+        commandsManager.run('toggleOneUp');
+      }
+    },
   };
 
   const definitions = {
+    doubleClickZoom: {
+      commandFn: actions.doubleClickZoom,
+    },
     // The command here is to show the viewer context menu, as being the
     // context menu
     showCornerstoneContextMenu: {

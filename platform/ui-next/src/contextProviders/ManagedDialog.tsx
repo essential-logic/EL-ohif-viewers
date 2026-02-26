@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/Dialog/Dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogContentBody,
+  DialogHeader,
+  DialogTitle,
+} from '../components/Dialog';
 import { cn } from '../lib/utils';
 
 type Position = {
@@ -83,19 +89,10 @@ const ManagedDialog = forwardRef<ManagedDialogRef, ManagedDialogProps>(
       setCurrentPosition(defaultPosition);
     }, [defaultPosition]);
 
-    // When a default position is provided, the assumption is that the position
-    // is respected unless the position chosen results in the dialog being
-    // clipped off-screen (i.e. part of the dialog is rendered outside the browser
-    // window). When the dialog is clipped it will be repositioned about
-    // the default position such that it is no longer clipped. To avoid a flash
-    // during the reposition, we initially hide the dialog.
     const [contentVisibility, setContentVisibility] = useState(
       defaultPosition ? 'invisible' : 'visible'
     );
 
-    // The callback to reposition an explicitly positioned dialog. Note that
-    // if the dialog is larger than the window (in either dimension), the
-    // dialog will still be clipped in some manner.
     const contentRef = useCallback(
       contentNode => {
         if (!contentNode) {
@@ -125,7 +122,11 @@ const ManagedDialog = forwardRef<ManagedDialogRef, ManagedDialogProps>(
       >
         <DialogContent
           ref={contentRef}
-          className={cn(unstyled ? 'p-0' : '', containerClassName, contentVisibility)}
+          className={cn(
+            unstyled ? 'border-none p-0 shadow-none' : '',
+            containerClassName,
+            contentVisibility
+          )}
           unstyled={unstyled}
           style={{
             ...(currentPosition
@@ -133,7 +134,7 @@ const ManagedDialog = forwardRef<ManagedDialogRef, ManagedDialogProps>(
                   position: 'fixed',
                   left: `${currentPosition.x}px`,
                   top: `${currentPosition.y}px`,
-                  transform: 'translate(0, 0)',
+                  transform: 'none',
                   margin: 0,
                   animation: 'none',
                   transition: 'none',
@@ -141,11 +142,23 @@ const ManagedDialog = forwardRef<ManagedDialogRef, ManagedDialogProps>(
               : {}),
           }}
         >
-          {!unstyled && <DialogHeader>{title && <DialogTitle>{title}</DialogTitle>}</DialogHeader>}
-          <DialogContentComponent
-            {...contentProps}
-            hide={() => onClose(id)}
-          />
+          {!unstyled && (
+            <>
+              <DialogHeader>{title && <DialogTitle>{title}</DialogTitle>}</DialogHeader>
+              <DialogContentBody>
+                <DialogContentComponent
+                  {...contentProps}
+                  hide={() => onClose(id)}
+                />
+              </DialogContentBody>
+            </>
+          )}
+          {unstyled && (
+            <DialogContentComponent
+              {...contentProps}
+              hide={() => onClose(id)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     );

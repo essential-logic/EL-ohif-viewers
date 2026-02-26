@@ -41,12 +41,13 @@ function ImageVisual({ children, className }: ImageVisualProps) {
   return (
     <div
       className={cn(
-        'flex-1 items-center justify-center rounded-2xl bg-black/80 p-4 sm:flex-[7]',
-        'flex', // ensure the container is a flex box
+        'flex min-h-0 min-w-0 flex-1 items-center justify-center rounded-2xl bg-black/80 p-4 sm:flex-[7]',
         className
       )}
     >
-      <div className="h-[512px] w-[512px] overflow-auto">{children}</div>
+      <div className="flex h-[400px] w-[400px] items-center justify-center overflow-hidden">
+        {children}
+      </div>
     </div>
   );
 }
@@ -59,7 +60,11 @@ interface ImageOptionsProps {
   className?: string;
 }
 function ImageOptions({ children, className }: ImageOptionsProps) {
-  return <div className={cn('flex-1 space-y-5 p-4 sm:flex-[3]', className)}>{children}</div>;
+  return (
+    <div className={cn('min-w-[300px] flex-1 space-y-4 p-4 sm:flex-[3]', className)}>
+      {children}
+    </div>
+  );
 }
 
 /* -------------------------------------------------------------------------- */

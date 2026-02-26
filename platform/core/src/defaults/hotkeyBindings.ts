@@ -45,7 +45,7 @@ const bindings = [
   {
     commandName: 'flipViewportVertical',
     label: 'Flip Vertically',
-    keys: ['v'],
+    keys: ['shift+v'],
     isEditable: true,
   },
   {
@@ -225,6 +225,20 @@ const bindings = [
     commandName: 'addNewSegment',
     label: 'Add New Segment',
     keys: ['a'],
+    isEditable: true,
+  },
+  {
+    commandName: 'setToolActive',
+    commandOptions: { toolName: 'WindowLevel' },
+    label: 'Select (W/L)',
+    keys: ['v'],
+    isEditable: true,
+  },
+  {
+    commandName: 'setToolActive',
+    commandOptions: { toolName: 'Pan' },
+    label: 'Pan',
+    keys: ['p'],
     isEditable: true,
   },
 ];

@@ -9,6 +9,7 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
+  DialogContentBody,
 } from './Dialog';
 
 export {
@@ -22,4 +23,5 @@ export {
   DialogFooter,
   DialogTitle,
   DialogDescription,
+  DialogContentBody,
 };

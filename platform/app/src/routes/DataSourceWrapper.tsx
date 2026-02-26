@@ -83,7 +83,7 @@ function DataSourceWrapper(props: withAppTypes<DataSourceWrapperProps>) {
 
   const [isDataSourceInitialized, setIsDataSourceInitialized] = useState(false);
 
-  // The path to the data source to be used in the URL for a mode (e.g. mode/dataSourcePath?StudyIntanceUIDs=1.2.3)
+  // The path to the data source to be used in the URL for a mode (e.g. mode/dataSourcePath?StudyInstanceUIDs=1.2.3)
   const [dataSourcePath, setDataSourcePath] = useState(() => {
     const dataSourceName = getInitialDataSourceName();
     return dataSourceName ? `/${dataSourceName}` : '';

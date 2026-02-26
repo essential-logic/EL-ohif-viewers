@@ -124,11 +124,11 @@ const DicomTagBrowser = ({
   }, [rows, filterValue]);
 
   return (
-    <div className="dicom-tag-browser-content bg-muted">
-      <div className="mb-6 flex flex-row items-start pl-1">
-        <div className="flex w-full flex-row items-start gap-4">
-          <div className="flex w-1/3 flex-col">
-            <span className="text-muted-foreground flex h-6 items-center pb-2 text-base">
+    <div className="dicom-tag-browser-content overflow-visible text-white">
+      <div className="mb-8 flex flex-col gap-6 px-1">
+        <div className="flex w-full flex-row items-end gap-6">
+          <div className="flex flex-1 flex-col gap-2">
+            <span className="text-sm font-semibold uppercase tracking-wider text-white/60">
               Series
             </span>
             <Select
@@ -155,8 +155,8 @@ const DicomTagBrowser = ({
             </Select>
           </div>
           {shouldShowInstanceList && (
-            <div className="mx-auto mt-0.5 flex w-1/4 flex-col">
-              <span className="text-muted-foreground flex h-6 items-center pb-2 text-base">
+            <div className="flex flex-1 flex-col gap-2 px-4">
+              <span className="text-sm font-semibold uppercase tracking-wider text-white/60">
                 Instance Number ({instanceNumber} of {activeDisplaySet?.images?.length})
               </span>
               <Slider
@@ -167,24 +167,24 @@ const DicomTagBrowser = ({
                 min={1}
                 max={activeDisplaySet?.images?.length}
                 step={1}
-                className="pt-4"
+                className="mt-1"
               />
             </div>
           )}
-          <div className="ml-auto mr-1 flex w-1/3 flex-col">
-            <span className="text-muted-foreground flex h-6 items-center pb-2 text-base">
+          <div className="flex flex-1 flex-col gap-2">
+            <span className="text-sm font-semibold uppercase tracking-wider text-white/60">
               Search metadata
             </span>
             <InputFilter
-              className="text-muted-foreground"
+              className="border-white/10 bg-white/5 text-white"
               onChange={setFilterValue}
             >
-              <InputFilter.SearchIcon />
+              <InputFilter.SearchIcon className="text-white/40" />
               <InputFilter.Input
-                placeholder="Search metadata"
-                className="pl-9 pr-9"
+                placeholder="Search keywords..."
+                className="bg-transparent pl-9 pr-9 placeholder:text-white/20"
               />
-              <InputFilter.ClearButton className="text-primary mr-0.5 p-0.5" />
+              <InputFilter.ClearButton className="text-primary-light mr-0.5 p-0.5" />
             </InputFilter>
           </div>
         </div>

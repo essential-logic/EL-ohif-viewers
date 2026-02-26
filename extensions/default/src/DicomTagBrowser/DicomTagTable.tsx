@@ -39,7 +39,7 @@ const RowComponent = ({
     <div
       style={{ ...style, ...rowStyle }}
       className={classNames(
-        'hover:bg-secondary-main border-secondary-light text-foreground flex w-full flex-row items-center break-all bg-black text-base transition duration-300',
+        'flex w-full flex-row items-center break-all border-white/5 bg-transparent text-[13px] font-medium text-white/90 transition-all duration-200 ease-out hover:bg-white/10',
         lineHeightClassName
       )}
       key={keyPrefix}
@@ -48,14 +48,14 @@ const RowComponent = ({
         <div style={{ paddingLeft: `${padding}px`, opacity: onToggle ? 1 : 0 }}>
           {row.areChildrenVisible ? (
             <div
-              className="cursor-pointer p-1"
+              className="cursor-pointer p-1 text-white/40 hover:text-white"
               onClick={handleToggle}
             >
               <Icons.ChevronDown />
             </div>
           ) : (
             <div
-              className="cursor-pointer p-1"
+              className="cursor-pointer p-1 text-white/40 hover:text-white"
               onClick={handleToggle}
             >
               <Icons.ChevronRight />
@@ -63,10 +63,10 @@ const RowComponent = ({
           )}
         </div>
       )}
-      <div className="w-4/24 px-3">{row.tag}</div>
-      <div className="w-2/24 px-3">{row.valueRepresentation}</div>
-      <div className="w-6/24 px-3">{row.keyword}</div>
-      <div className="w-5/24 grow px-3">{row.value}</div>
+      <div className="w-4/24 px-3 font-mono text-white/50">{row.tag}</div>
+      <div className="w-2/24 px-3 text-cyan-400/70">{row.valueRepresentation}</div>
+      <div className="w-6/24 px-3 font-bold text-white/80">{row.keyword}</div>
+      <div className="w-5/24 grow px-3 text-white/60">{row.value}</div>
     </div>
   );
 };
@@ -75,14 +75,14 @@ function ColumnHeaders({ tagRef, vrRef, keywordRef, valueRef }) {
   return (
     <div
       className={classNames(
-        'bg-secondary-dark ohif-scrollbar flex w-full flex-row overflow-y-scroll'
+        'ohif-scrollbar flex w-full flex-row overflow-y-scroll border-b border-white/10 bg-white/5'
       )}
       style={rowVerticalPaddingStyle}
     >
       <div className="w-4/24 px-3">
         <label
           ref={tagRef}
-          className="flex flex-1 select-none flex-col pl-1 text-lg text-white"
+          className="flex flex-1 select-none flex-col pl-1 text-[11px] font-bold uppercase tracking-widest text-white/40"
         >
           <span className="flex flex-row items-center focus:outline-none">Tag</span>
         </label>
@@ -90,7 +90,7 @@ function ColumnHeaders({ tagRef, vrRef, keywordRef, valueRef }) {
       <div className="w-2/24 px-3">
         <label
           ref={vrRef}
-          className="flex flex-1 select-none flex-col pl-1 text-lg text-white"
+          className="flex flex-1 select-none flex-col pl-1 text-[11px] font-bold uppercase tracking-widest text-white/40"
         >
           <span className="flex flex-row items-center focus:outline-none">VR</span>
         </label>
@@ -98,7 +98,7 @@ function ColumnHeaders({ tagRef, vrRef, keywordRef, valueRef }) {
       <div className="w-6/24 px-3">
         <label
           ref={keywordRef}
-          className="flex flex-1 select-none flex-col pl-1 text-lg text-white"
+          className="flex flex-1 select-none flex-col pl-1 text-[11px] font-bold uppercase tracking-widest text-white/40"
         >
           <span className="flex flex-row items-center focus:outline-none">Keyword</span>
         </label>
@@ -106,7 +106,7 @@ function ColumnHeaders({ tagRef, vrRef, keywordRef, valueRef }) {
       <div className="w-5/24 grow px-3">
         <label
           ref={valueRef}
-          className="flex flex-1 select-none flex-col pl-1 text-lg text-white"
+          className="flex flex-1 select-none flex-col pl-1 text-[11px] font-bold uppercase tracking-widest text-white/40"
         >
           <span className="flex flex-row items-center focus:outline-none">Value</span>
         </label>
@@ -283,8 +283,8 @@ function DicomTagTable({ rows }: { rows: Row[] }) {
         valueRef={valueRef}
       />
       <div
-        className="relative m-auto border-2 border-black bg-black"
-        style={{ height: '32rem' }}
+        className="relative m-auto border-none bg-transparent"
+        style={{ height: '35rem' }}
       >
         {isHeaderRendered() && (
           <List

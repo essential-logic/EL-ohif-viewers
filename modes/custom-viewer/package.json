@@ -1,0 +1,22 @@
+{
+  "name": "@ohif/mode-custom-viewer",
+  "version": "1.0.0",
+  "description": "Custom Viewer Mode using Material UI Layout",
+  "author": "Antigravity",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "engines": {
+    "node": ">=14",
+    "npm": ">=6",
+    "yarn": ">=1.16.0"
+  },
+  "peerDependencies": {
+    "@ohif/core": "^3.0.0"
+  },
+  "dependencies": {
+    "@ohif/extension-default": "^3.0.0",
+    "@ohif/extension-cornerstone": "^3.0.0",
+    "@ohif/extension-custom-ui": "1.0.0",
+    "i18next": "^17.3.1"
+  }
+}

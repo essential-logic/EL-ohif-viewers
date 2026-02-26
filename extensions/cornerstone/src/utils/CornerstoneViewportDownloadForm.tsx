@@ -8,7 +8,7 @@ import { useSystem } from '@ohif/core/src';
 
 const { downloadUrl } = utils;
 
-const DEFAULT_SIZE = 512;
+const DEFAULT_SIZE = 400;
 const MAX_TEXTURE_SIZE = 10000;
 const VIEWPORT_ID = 'cornerstone-viewport-download-form';
 

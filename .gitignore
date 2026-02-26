@@ -12,6 +12,7 @@ coverage/
 .docz/
 .yarn/
 .nx/
+.cache/
 addOns/yarn.lock
 playwright-report/
 
@@ -62,3 +63,5 @@ tests/playwright-report/
 
 # Backup files
 *~
+Sample-Ui-Design
+testdata
