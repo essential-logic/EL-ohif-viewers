@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+// Trivial change to trigger linter refresh
 import {
   ThemeProvider,
   Box,
@@ -14,17 +15,33 @@ import { GlassLayout } from './components/GlassLayout';
 import { GlassToolbar } from './components/GlassToolbar';
 import { ToolPanel } from './components/ToolPanel';
 import { ImageInfo } from './components/ImageInfo';
-import { SegmentationPanel } from './components/SegmentationPanel';
 import { AnnotationPanel } from './components/AnnotationPanel';
+import { SegmentationPanel } from './components/SegmentationPanel';
 import { CinePlayer } from './components/CinePlayer';
+import { ImageAdjustmentPanel } from './components/ImageAdjustmentPanel';
+import { MobileDock } from './components/MobileDock';
+import { ServicesManager, CommandsManager, HotkeysManager, ExtensionManager } from '@ohif/core';
+
+interface ViewportConfig {
+  namespace: string;
+  displaySetsToDisplay: string[];
+}
 
 interface CustomLayoutProps {
-  servicesManager: any;
-  extensionManager: any;
-  viewports: unknown[];
-  ViewportGridComp: any; // OHIF specific component injection
-  commandsManager: any;
-  hotkeysManager: any;
+  servicesManager: ServicesManager;
+  extensionManager: ExtensionManager;
+  viewports: ViewportConfig[];
+  ViewportGridComp: React.ComponentType<{
+    servicesManager: ServicesManager;
+    viewportComponents: {
+      component: React.ComponentType<Record<string, unknown>>;
+      isReferenceViewable: boolean;
+      displaySetsToDisplay: string[];
+    }[];
+    commandsManager: CommandsManager;
+  }>;
+  commandsManager: CommandsManager;
+  hotkeysManager: HotkeysManager;
   studyInstanceUIDs: string | string[];
 }
 
@@ -40,16 +57,19 @@ export default function CustomLayout({
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
 
-  const [activeTool, setActiveTool] = useState('Zoom');
-  const [viewMode, setViewMode] = useState('viewer'); // 'viewer' | 'segmentation' | 'annotation'
+  const [activeTool, setActiveTool] = useState('WindowLevel');
+  const [viewMode, setViewMode] = useState('viewer'); // 'viewer' | 'segmentation' | 'annotation' | 'adjustments'
   const [isCineOpen, setIsCineOpen] = useState(false);
   const [isCinePlaying, setIsCinePlaying] = useState(false);
   const [currentFrame, setCurrentFrame] = useState(1);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // RESOLUTION LOGIC: Convert viewport namespaces (strings) into actual components
-  const getViewportComponentData = (viewportComponent: any) => {
-    const entry = extensionManager.getModuleEntry(viewportComponent.namespace);
+  const getViewportComponentData = (viewportComponent: ViewportConfig) => {
+    const entry = extensionManager.getModuleEntry(viewportComponent.namespace) as {
+      component: React.ComponentType<Record<string, unknown>>;
+      isReferenceViewable: boolean;
+    };
 
     if (!entry || !entry.component) {
       console.warn(`No component found for viewport namespace: ${viewportComponent.namespace}`);
@@ -93,16 +113,31 @@ export default function CustomLayout({
             commandsManager={commandsManager}
             activeTool={activeTool}
             setActiveTool={setActiveTool}
+            onToggleAdjustments={() =>
+              setViewMode(v => (v === 'adjustments' ? 'viewer' : 'adjustments'))
+            }
             isMobile={isMobile}
           />
         }
         rightPanel={
           viewMode === 'viewer' ? (
-            <ImageInfo />
+            <ImageInfo servicesManager={servicesManager} />
           ) : viewMode === 'segmentation' ? (
-            <SegmentationPanel />
+            <SegmentationPanel
+              servicesManager={servicesManager}
+              commandsManager={commandsManager}
+              activeTool={activeTool}
+              setActiveTool={setActiveTool}
+            />
+          ) : viewMode === 'adjustments' ? (
+            <ImageAdjustmentPanel commandsManager={commandsManager} />
           ) : (
-            <AnnotationPanel />
+            <AnnotationPanel
+              servicesManager={servicesManager}
+              commandsManager={commandsManager}
+              activeTool={activeTool}
+              setActiveTool={setActiveTool}
+            />
           )
         }
       >
@@ -154,15 +189,28 @@ export default function CustomLayout({
                     setIsDrawerOpen(false);
                   }
                 }}
+                onToggleAdjustments={() =>
+                  setViewMode(v => (v === 'adjustments' ? 'viewer' : 'adjustments'))
+                }
                 isMobile={isMobile}
               />
               <Box sx={{ flex: 1, overflowY: 'auto' }}>
                 {viewMode === 'viewer' ? (
-                  <ImageInfo />
+                  <ImageInfo servicesManager={servicesManager} />
                 ) : viewMode === 'segmentation' ? (
-                  <SegmentationPanel />
+                  <SegmentationPanel
+                    servicesManager={servicesManager}
+                    commandsManager={commandsManager}
+                    activeTool={activeTool}
+                    setActiveTool={setActiveTool}
+                  />
                 ) : (
-                  <AnnotationPanel />
+                  <AnnotationPanel
+                    servicesManager={servicesManager}
+                    commandsManager={commandsManager}
+                    activeTool={activeTool}
+                    setActiveTool={setActiveTool}
+                  />
                 )}
               </Box>
             </Box>
@@ -179,6 +227,14 @@ export default function CustomLayout({
             totalFrames={100}
             onFrameChange={setCurrentFrame}
           />
+
+          {isMobile && !isCineOpen && (
+            <MobileDock
+              activeTool={activeTool}
+              onSelect={setActiveTool}
+              onMoreClick={() => setIsDrawerOpen(true)}
+            />
+          )}
 
           <ViewportGridComp
             servicesManager={servicesManager}

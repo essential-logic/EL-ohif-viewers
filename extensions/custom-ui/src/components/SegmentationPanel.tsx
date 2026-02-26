@@ -1,5 +1,5 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brush as BrushIcon,
   AutoFixHigh as EraserIcon,
@@ -10,182 +10,424 @@ import {
   VisibilityOff as EyeOffIcon,
   Lock as LockIcon,
   LockOpen as UnlockIcon,
+  Delete as DeleteIcon,
+  CropSquare as RectIcon,
+  FiberManualRecord as CircleIcon,
+  ShapeLine as SculptIcon,
+  FormatColorFill as FillIcon,
+  DynamicFeed as InterpolateIcon,
+  RadioButtonChecked as SphereIcon,
 } from '@mui/icons-material';
 import { GlassPanel } from './GlassPanel';
-import { Box, Typography, IconButton, Slider, ButtonBase } from '@mui/material';
+import { Box, Typography, IconButton, Slider, ButtonBase, Tooltip, Stack } from '@mui/material';
 
-const labelmaps = [
-  { id: 1, name: 'Liver', color: '#ef4444', visible: true, locked: false },
-  { id: 2, name: 'Tumor', color: '#eab308', visible: true, locked: true },
-  { id: 3, name: 'Vessels', color: '#3b82f6', visible: false, locked: false },
-];
+export function SegmentationPanel({ 
+  servicesManager, 
+  commandsManager, 
+  activeTool: globalActiveTool, 
+  setActiveTool: setGlobalActiveTool 
+}) {
+  const { segmentationService, viewportGridService, toolGroupService } = servicesManager.services;
+  const [segmentations, setSegmentations] = useState([]);
+  const [activeViewportId, setActiveViewportId] = useState(null);
+  const [activeTool, setActiveTool] = useState(null);
+  const [activeStrategy, setActiveStrategy] = useState(null);
+  const [globalOpacity, setGlobalOpacity] = useState(0.5);
 
-export function SegmentationPanel() {
+  // Sync with active viewport
+  useEffect(() => {
+    const { activeViewportId: activeId } = viewportGridService.getState();
+    setActiveViewportId(activeId);
+
+    const unsubGrid = viewportGridService.subscribe(
+      viewportGridService.EVENTS.ACTIVE_VIEWPORT_ID_CHANGED,
+      (state) => {
+        if (state.activeViewportId) {
+          setActiveViewportId(state.activeViewportId);
+        }
+      }
+    );
+
+    return () => unsubGrid.unsubscribe();
+  }, [viewportGridService]);
+
+  // Sync segmentations
+  useEffect(() => {
+    const updateSegmentations = () => {
+      if (!activeViewportId) return;
+      const reps = segmentationService.getSegmentationRepresentations(activeViewportId);
+      const segs = reps.map(rep => {
+        const segmentation = segmentationService.getSegmentation(rep.segmentationId);
+        return {
+          ...segmentation,
+          representation: rep,
+        };
+      });
+      setSegmentations(segs);
+
+      if (reps.length > 0 && reps[0].config?.fillAlpha !== undefined) {
+        setGlobalOpacity(reps[0].config.fillAlpha);
+      }
+    };
+
+    updateSegmentations();
+
+    const subscriptions = [
+      segmentationService.subscribe(segmentationService.EVENTS.SEGMENTATION_MODIFIED, updateSegmentations),
+      segmentationService.subscribe(segmentationService.EVENTS.SEGMENTATION_REMOVED, updateSegmentations),
+      segmentationService.subscribe(segmentationService.EVENTS.SEGMENTATION_DATA_MODIFIED, updateSegmentations),
+      segmentationService.subscribe(segmentationService.EVENTS.SEGMENTATION_REPRESENTATION_MODIFIED, updateSegmentations),
+    ];
+
+    return () => subscriptions.forEach(s => s.unsubscribe());
+  }, [segmentationService, activeViewportId]);
+
+  // Track active tool and UI state
+  useEffect(() => {
+    const updateActiveTool = () => {
+      if (!activeViewportId) return;
+      const toolGroup = toolGroupService.getToolGroupForViewport(activeViewportId);
+      if (toolGroup) {
+        const toolName = toolGroup.getActivePrimaryMouseButtonTool();
+        setActiveTool(toolName);
+        
+        // Get active strategy from options - more reliable in Cornerstone3D
+        const options = toolGroup.getToolOptions(toolName);
+        setActiveStrategy(options?.strategy || null);
+        
+        // Update global state if available to sync toolbar
+        if (setGlobalActiveTool && toolName) {
+          setGlobalActiveTool(toolName);
+        }
+      }
+    };
+
+    updateActiveTool();
+
+    const unsubTools = toolGroupService.subscribe(
+      toolGroupService.EVENTS.TOOL_ACTIVATED,
+      updateActiveTool
+    );
+
+    return () => unsubTools.unsubscribe();
+  }, [activeViewportId, toolGroupService, setGlobalActiveTool]);
+
+  const activeSegmentation = useMemo(() => {
+    if (!activeViewportId) return null;
+    return segmentationService.getActiveSegmentation(activeViewportId);
+  }, [activeViewportId, segmentations]);
+
+  const activeSegmentIndex = useMemo(() => {
+    if (!activeViewportId || !activeSegmentation) return null;
+    const activeSeg = segmentationService.getActiveSegment(activeViewportId);
+    return activeSeg?.segmentIndex;
+  }, [activeViewportId, activeSegmentation, segmentations]);
+
+  const handleToolClick = (toolName, options = {}) => {
+    const toolGroup = toolGroupService.getToolGroupForViewport(activeViewportId);
+    const toolGroupId = toolGroup?.id || 'default';
+    const toolGroupIds = ['default', 'mpr', 'SRToolGroup', 'volume3d', toolGroupId];
+    
+    // Optimistic UI update
+    setActiveTool(toolName);
+    setActiveStrategy(options.strategy || null);
+    if (setGlobalActiveTool) {
+      setGlobalActiveTool(toolName);
+    }
+
+    try {
+      commandsManager.run('setToolActiveToolbar', {
+        toolName,
+        itemId: toolName,
+        toolGroupIds,
+        ...options
+      });
+    } catch (e) {
+      console.warn('SegmentationPanel: Failed to run setToolActiveToolbar', e);
+      toolGroupIds.forEach(id => {
+        commandsManager.run('setToolActive', { 
+          toolName, 
+          toolGroupId: id,
+          ...options 
+        });
+      });
+    }
+  };
+
+  const handleAddSegment = () => {
+    if (activeSegmentation) {
+      commandsManager.run('addSegment', {
+        segmentationId: activeSegmentation.segmentationId,
+      });
+    } else {
+      commandsManager.run('createLabelmapForViewport', {
+        viewportId: activeViewportId,
+      });
+    }
+  };
+
+  const handleDeleteSegment = (segmentIndex) => {
+    if (!activeSegmentation) return;
+    commandsManager.run('deleteSegment', {
+      segmentationId: activeSegmentation.segmentationId,
+      segmentIndex,
+    });
+  };
+
+  const toggleVisibility = (segmentIndex) => {
+    if (!activeSegmentation) return;
+    commandsManager.run('toggleSegmentVisibility', {
+      segmentationId: activeSegmentation.segmentationId,
+      segmentIndex,
+    });
+  };
+
+  const toggleLock = (segmentIndex) => {
+    if (!activeSegmentation) return;
+    commandsManager.run('toggleSegmentLock', {
+      segmentationId: activeSegmentation.segmentationId,
+      segmentIndex,
+    });
+  };
+
+  const handleOpacityChange = (_, value) => {
+    const alpha = value / 100;
+    setGlobalOpacity(alpha);
+    commandsManager.run('setFillAlpha', { value: alpha });
+  };
+
+  const getSegmentColor = (segmentIndex) => {
+     if (!activeViewportId || !activeSegmentation) return '#3b82f6';
+     const color = segmentationService.getSegmentColor(activeViewportId, activeSegmentation.segmentationId, segmentIndex);
+     return color ? `rgba(${color[0]}, ${color[1]}, ${color[2]}, 1)` : '#3b82f6';
+  };
+
+  const segments = useMemo(() => {
+    if (!activeSegmentation) return [];
+    return Object.values(activeSegmentation.segments).filter(s => s !== undefined);
+  }, [activeSegmentation]);
+
+  const toolGroups = [
+    {
+      title: 'Manual Tools',
+      tools: [
+        { id: 'Brush', icon: BrushIcon, label: 'Paint' },
+        { id: 'Eraser', icon: EraserIcon, label: 'Erase', strategy: 'ERASE' },
+        { id: 'PaintFill', icon: FillIcon, label: 'Fill' },
+        { id: 'Sculptor', icon: SculptIcon, label: 'Sculpt' },
+      ]
+    },
+    {
+      title: 'Scissors',
+      tools: [
+        { id: 'CircleScissors', icon: CircleIcon, label: 'Circle' },
+        { id: 'RectangleScissors', icon: RectIcon, label: 'Square' },
+        { id: 'SphereScissors', icon: SphereIcon, label: 'Sphere' },
+      ]
+    },
+    {
+      title: 'AI & Automation',
+      tools: [
+        { id: 'MarkerLabelmap', icon: AiIcon, label: 'AI Label' },
+        { id: 'LabelmapSlicePropagation', icon: InterpolateIcon, label: 'Propagate' },
+      ]
+    }
+  ];
+
   return (
-    <GlassPanel sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography
-          variant="subtitle2"
-          fontWeight={600}
-          color="text.primary"
-        >
+    <GlassPanel sx={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 2.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="subtitle2" fontWeight={800} color="text.primary" sx={{ letterSpacing: 1.5, fontSize: '0.75rem' }}>
           SEGMENTATION
         </Typography>
-        <IconButton
-          size="small"
-          sx={{ color: 'primary.main' }}
-        >
-          <PlusIcon fontSize="small" />
-        </IconButton>
-      </Box>
-
-      {/* Tools */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(60px, 1fr))',
-          gap: 1,
-          mb: 3,
-        }}
-      >
-        {[
-          { icon: BrushIcon, label: 'Paint' },
-          { icon: EraserIcon, label: 'Erase' },
-          { icon: ScissorsIcon, label: 'Cut' },
-          { icon: AiIcon, label: 'AI' },
-        ].map((tool, index) => (
-          <ButtonBase
-            component={motion.button}
-            key={index}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              p: 1,
-              borderRadius: 2,
-              bgcolor: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
-              '&:hover': {
-                bgcolor: 'rgba(59, 130, 246, 0.1)',
-                borderColor: 'primary.main',
-              },
+        <Tooltip title="Add New Segment">
+          <IconButton
+            size="small"
+            onClick={handleAddSegment}
+            sx={{ 
+              color: 'primary.main',
+              bgcolor: 'rgba(59, 130, 246, 0.1)',
+              '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.2)' }
             }}
           >
-            <tool.icon sx={{ fontSize: 18, color: 'text.secondary', mb: 0.5 }} />
-            <Typography
-              variant="caption"
-              sx={{ fontSize: '0.6rem', color: 'text.secondary' }}
-            >
-              {tool.label}
+            <PlusIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
+      {/* Tools Section */}
+      <Box sx={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {toolGroups.map((group, gIdx) => (
+          <Box key={gIdx} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase', opacity: 0.6 }}>
+              {group.title}
             </Typography>
-          </ButtonBase>
+            <Box sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(4, 1fr)', 
+              gap: 1
+            }}>
+              {group.tools.map((tool) => {
+                const isEraser = tool.id === 'Eraser';
+                const actualToolName = isEraser ? 'Brush' : tool.id;
+                
+                // Distinguish between Paint (Brush) and Eraser (Brush + ERASE strategy)
+                let isActive = activeTool === actualToolName;
+                if (isActive && actualToolName === 'Brush') {
+                  if (isEraser) {
+                    isActive = activeStrategy === 'ERASE';
+                  } else {
+                    isActive = activeStrategy !== 'ERASE';
+                  }
+                }
+                
+                return (
+                  <Tooltip key={tool.id} title={tool.label} placement="top">
+                    <ButtonBase
+                      component={motion.button}
+                      onClick={() => handleToolClick(actualToolName, tool.strategy ? { strategy: tool.strategy } : {})}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        p: 1,
+                        borderRadius: 1.5,
+                        aspectRatio: '1/1',
+                        bgcolor: isActive ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid',
+                        borderColor: isActive ? 'primary.main' : 'rgba(255, 255, 255, 0.05)',
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          bgcolor: isActive ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                          borderColor: 'primary.main',
+                        },
+                      }}
+                    >
+                      <tool.icon sx={{ fontSize: 18, color: isActive ? 'primary.main' : 'text.secondary' }} />
+                    </ButtonBase>
+                  </Tooltip>
+                );
+              })}
+            </Box>
+          </Box>
         ))}
       </Box>
 
-      {/* Layers List */}
-      <Box sx={{ flex: 1, overflowY: 'auto' }}>
-        <Typography
-          variant="caption"
-          sx={{
-            color: 'text.secondary',
-            textTransform: 'uppercase',
-            letterSpacing: 1,
-            fontWeight: 700,
-            display: 'block',
-            mb: 1,
-          }}
-        >
-          Segments
+      {/* Segments List Section */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', fontWeight: 800, mb: 1.5, fontSize: '0.6rem', opacity: 0.6 }}>
+          Segments {segments.length > 0 && `(${segments.length})`}
         </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {labelmaps.map((label, index) => (
-            <motion.div
-              key={label.id}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  p: 1.5,
-                  borderRadius: 1.5,
-                  bgcolor: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)', borderColor: 'primary.main' },
-                  transition: 'all 0.2s',
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    bgcolor: label.color,
-                    boxShadow: `0 0 8px ${label.color}80`,
-                  }}
-                />
-                <Typography
-                  variant="caption"
-                  sx={{ flex: 1, fontWeight: 600, color: 'text.primary' }}
-                >
-                  {label.name}
-                </Typography>
-
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  <IconButton
-                    size="small"
-                    sx={{ p: 0.5, color: label.visible ? 'text.primary' : 'text.disabled' }}
-                  >
-                    {label.visible ? (
-                      <EyeIcon sx={{ fontSize: 14 }} />
-                    ) : (
-                      <EyeOffIcon sx={{ fontSize: 14 }} />
-                    )}
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    sx={{ p: 0.5, color: label.locked ? 'warning.main' : 'text.disabled' }}
-                  >
-                    {label.locked ? (
-                      <LockIcon sx={{ fontSize: 14 }} />
-                    ) : (
-                      <UnlockIcon sx={{ fontSize: 14 }} />
-                    )}
-                  </IconButton>
-                </Box>
+        
+        <Box sx={{ flex: 1, overflowY: 'auto', pr: 0.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+          <AnimatePresence mode="popLayout">
+            {segments.length === 0 ? (
+              <Box sx={{ py: 4, textAlign: 'center', opacity: 0.4 }}>
+                <Typography variant="caption" color="text.secondary">No segments created</Typography>
               </Box>
-            </motion.div>
-          ))}
+            ) : (
+              segments.map((segment) => {
+                const isActive = activeSegmentIndex === segment.segmentIndex;
+                const color = getSegmentColor(segment.segmentIndex);
+                
+                return (
+                  <motion.div
+                    key={segment.segmentIndex}
+                    initial={{ opacity: 0, x: -5 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    layout
+                  >
+                    <Box
+                      onClick={() => {
+                        if (activeSegmentation) {
+                          commandsManager.runCommand('setActiveSegmentAndCenter', { 
+                            segmentationId: activeSegmentation.segmentationId,
+                            segmentIndex: segment.segmentIndex 
+                          });
+                        }
+                      }}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.25,
+                        p: 1.25,
+                        borderRadius: 1.5,
+                        cursor: 'pointer',
+                        bgcolor: isActive ? 'rgba(59, 130, 246, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid',
+                        borderColor: isActive ? 'primary.main' : 'transparent',
+                        transition: 'all 0.2s',
+                        '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)', borderColor: isActive ? 'primary.main' : 'rgba(255, 255, 255, 0.1)' },
+                      }}
+                    >
+                      <Box sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        bgcolor: color,
+                        boxShadow: `0 0 8px ${color}`,
+                        flexShrink: 0
+                      }} />
+                      
+                      <Typography variant="body2" sx={{ flex: 1, fontWeight: 700, color: 'text.primary', fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {segment.label}
+                      </Typography>
+
+                      <Stack direction="row" spacing={0} onClick={(e) => e.stopPropagation()}>
+                        <Tooltip title={segment.visible !== false ? "Hide" : "Show"}>
+                          <IconButton size="small" onClick={() => toggleVisibility(segment.segmentIndex)} sx={{ p: 0.5, color: segment.visible !== false ? 'primary.main' : 'text.disabled', opacity: 0.8 }}>
+                            {segment.visible !== false ? <EyeIcon sx={{ fontSize: 16 }} /> : <EyeOffIcon sx={{ fontSize: 16 }} />}
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={segment.locked ? "Unlock" : "Lock"}>
+                          <IconButton size="small" onClick={() => toggleLock(segment.segmentIndex)} sx={{ p: 0.5, color: segment.locked ? 'warning.main' : 'text.disabled', opacity: 0.8 }}>
+                            {segment.locked ? <LockIcon sx={{ fontSize: 16 }} /> : <UnlockIcon sx={{ fontSize: 16 }} />}
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton size="small" onClick={() => handleDeleteSegment(segment.segmentIndex)} sx={{ p: 0.5, color: 'text.disabled', '&:hover': { color: 'error.main' }, opacity: 0.6 }}>
+                            <DeleteIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </Box>
+                  </motion.div>
+                );
+              })
+            )}
+          </AnimatePresence>
         </Box>
       </Box>
 
-      {/* Opacity Slider */}
-      <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            Global Opacity
-          </Typography>
-          <Typography
-            variant="caption"
-            color="primary.main"
-            fontWeight={700}
-          >
-            50%
+      {/* Global Controls Section */}
+      <Box sx={{ mt: 'auto', pt: 2, borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.65rem' }}>Global Opacity</Typography>
+          <Typography variant="caption" color="primary.main" fontWeight={800} sx={{ fontSize: '0.65rem' }}>
+            {Math.round(globalOpacity * 100)}%
           </Typography>
         </Box>
         <Slider
           size="small"
-          defaultValue={50}
-          sx={{ color: 'primary.main' }}
+          value={globalOpacity * 100}
+          onChange={handleOpacityChange}
+          sx={{ 
+            color: 'primary.main',
+            height: 4,
+            '& .MuiSlider-thumb': {
+              width: 10,
+              height: 10,
+              transition: '0.3s cubic-bezier(.47,1.64,.41,.8)',
+              '&:before': { display: 'none' },
+              '&:hover, &.Mui-focusVisible': {
+                boxShadow: '0px 0px 0px 8px rgba(59, 130, 246, 0.16)',
+              },
+            }
+          }}
         />
       </Box>
     </GlassPanel>

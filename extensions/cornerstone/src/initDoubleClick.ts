@@ -14,15 +14,24 @@ const cs3DToolsEvents = Enums.Events;
  */
 function getDoubleClickEventName(evt: CustomEvent) {
   const nameArr = [];
-  if (evt.detail.event.altKey) {
+  const { event } = evt.detail;
+  if (event.altKey) {
     nameArr.push('alt');
   }
-  if (evt.detail.event.ctrlKey) {
+  if (event.ctrlKey) {
     nameArr.push('ctrl');
   }
-  if (evt.detail.event.shiftKey) {
+  if (event.shiftKey) {
     nameArr.push('shift');
   }
+
+  // button 0 is left, button 1 is middle, button 2 is right
+  if (event.button === 2) {
+    nameArr.push('right');
+  } else if (event.button === 1) {
+    nameArr.push('middle');
+  }
+
   nameArr.push('doubleClick');
   return nameArr.join('');
 }
@@ -53,7 +62,33 @@ function initDoubleClick({ customizationService, commandsManager }: initDoubleCl
       return;
     }
 
-    commandsManager.run(toRun);
+    commandsManager.run(toRun, { event: evt });
+  };
+
+  // Track last right click time and element to simulate right double click
+  let lastRightClickTime = 0;
+  let lastRightClickElement = null;
+
+  const cornerstoneViewportHandleMouseDown = (evt: CustomEvent) => {
+    const { event, element } = evt.detail;
+
+    // button 2 is right click
+    if (event.button === 2) {
+      const currentTime = Date.now();
+      if (
+        lastRightClickElement === element &&
+        currentTime - lastRightClickTime < 300 // 300ms threshold for double click
+      ) {
+        // Trigger the double click handler manually
+        cornerstoneViewportHandleDoubleClick(evt);
+        // Reset to prevent triple click from triggering another double click
+        lastRightClickTime = 0;
+        lastRightClickElement = null;
+      } else {
+        lastRightClickTime = currentTime;
+        lastRightClickElement = element;
+      }
+    }
   };
 
   function elementEnabledHandler(evt: CustomEvent) {
@@ -63,6 +98,8 @@ function initDoubleClick({ customizationService, commandsManager }: initDoubleCl
       cs3DToolsEvents.MOUSE_DOUBLE_CLICK,
       cornerstoneViewportHandleDoubleClick
     );
+
+    element.addEventListener(cs3DToolsEvents.MOUSE_DOWN, cornerstoneViewportHandleMouseDown);
   }
 
   function elementDisabledHandler(evt: CustomEvent) {
@@ -72,6 +109,8 @@ function initDoubleClick({ customizationService, commandsManager }: initDoubleCl
       cs3DToolsEvents.MOUSE_DOUBLE_CLICK,
       cornerstoneViewportHandleDoubleClick
     );
+
+    element.removeEventListener(cs3DToolsEvents.MOUSE_DOWN, cornerstoneViewportHandleMouseDown);
   }
 
   eventTarget.addEventListener(EVENTS.ELEMENT_ENABLED, elementEnabledHandler.bind(null));

@@ -14,7 +14,10 @@ import {
   Upload as UploadIcon,
   Settings as SettingsIcon,
   EventNote as ScheduleIcon,
+  CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { loadDICOMFiles } from '../utils/dicomLoader';
 import {
   Box,
   Typography,
@@ -28,6 +31,13 @@ import {
   CssBaseline,
   useTheme,
   useMediaQuery,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
+  Stack,
 } from '@mui/material';
 import { theme } from '../Theme';
 
@@ -135,7 +145,7 @@ function Sidebar({ onSettingsOpen }: { onSettingsOpen?: () => void }) {
       }}
     >
       {/* Branding */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: 4, width: 'fit-content' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
           <Box
             sx={{
@@ -146,14 +156,14 @@ function Sidebar({ onSettingsOpen }: { onSettingsOpen?: () => void }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 36,
-              height: 36,
+              width: 44,
+              height: 44,
             }}
           >
             <img
-              src="./essential-logic-logo.png"
+              src="/essential-logic-logo.png"
               alt="Logo"
-              style={{ width: 24, height: 24, objectFit: 'contain' }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               onError={e => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
@@ -164,13 +174,12 @@ function Sidebar({ onSettingsOpen }: { onSettingsOpen?: () => void }) {
               variant="h6"
               sx={{
                 background: 'linear-gradient(to right, #3b82f6, #93c5fd, #22d3ee)',
-                backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
-                color: 'transparent',
+                WebkitTextFillColor: 'transparent',
                 fontWeight: 800,
-                lineHeight: 1.3,
-                fontSize: '1.15rem',
-                letterSpacing: 0.1,
+                lineHeight: 1.1,
+                fontSize: '1.250rem',
+                letterSpacing: 0.2,
               }}
             >
               DICOM Pro
@@ -179,10 +188,10 @@ function Sidebar({ onSettingsOpen }: { onSettingsOpen?: () => void }) {
               variant="caption"
               sx={{
                 color: 'white',
-                fontSize: '0.72rem',
-                fontWeight: 600,
+                fontSize: '0.85rem',
+                fontWeight: 800,
                 display: 'block',
-                lineHeight: 1,
+                lineHeight: 1.2,
               }}
             >
               by Essential Logic
@@ -192,16 +201,20 @@ function Sidebar({ onSettingsOpen }: { onSettingsOpen?: () => void }) {
         <Typography
           variant="caption"
           sx={{
-            color: 'rgba(255,255,255,0.35)',
-            fontSize: '0.55rem',
+            color: 'rgba(255,255,255,0.3)',
+            fontSize: '0.5rem',
+            fontWeight: 900,
             textTransform: 'uppercase',
-            letterSpacing: 2,
             display: 'block',
-            textAlign: 'center',
-            mt: 0.5,
+            mt: 0.6,
+            textAlign: 'justify',
+            textAlignLast: 'justify',
+            width: '100%',
+            lineHeight: 1,
+            letterSpacing: 4,
           }}
         >
-          Powered by OHIF Viewer
+          POWERED BY OHIF VIEWER
         </Typography>
       </Box>
 
@@ -578,6 +591,176 @@ function StudyCard({ study, index, onClick, isMobile }: StudyCardProps & { isMob
   );
 }
 
+// ── New Study Modal ─────────────────────────────────────────────────────────
+
+interface NewStudyModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: {
+    patientName: string;
+    studyDescription: string;
+    studyDate: string;
+    files: File[];
+  }) => void;
+  isUploading: boolean;
+}
+
+function NewStudyModal({ open, onClose, onSubmit, isUploading }: NewStudyModalProps) {
+  const [formData, setFormData] = useState({
+    patientName: '',
+    studyDescription: '',
+    studyDate: new Date().toISOString().split('T')[0],
+  });
+  const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    setFiles(prev => [...prev, ...selectedFiles]);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    setFiles(prev => [...prev, ...droppedFiles]);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (files.length === 0) {
+      return;
+    }
+    onSubmit({ ...formData, files });
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={isUploading ? undefined : onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          bgcolor: 'rgba(15, 23, 42, 0.9)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 4,
+          backgroundImage: 'none',
+        },
+      }}
+    >
+      <form onSubmit={handleSubmit}>
+        <DialogTitle sx={{ color: 'text.primary', fontWeight: 800, pb: 1 }}>
+          Create New Study
+        </DialogTitle>
+        <DialogContent>
+          <Stack
+            spacing={3}
+            sx={{ mt: 1 }}
+          >
+            <TextField
+              label="Patient Name"
+              fullWidth
+              required
+              value={formData.patientName}
+              onChange={e => setFormData({ ...formData, patientName: e.target.value })}
+              variant="outlined"
+              size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+            <TextField
+              label="Study Description"
+              fullWidth
+              required
+              value={formData.studyDescription}
+              onChange={e => setFormData({ ...formData, studyDescription: e.target.value })}
+              variant="outlined"
+              size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+            <TextField
+              label="Study Date"
+              type="date"
+              fullWidth
+              required
+              value={formData.studyDate}
+              onChange={e => setFormData({ ...formData, studyDate: e.target.value })}
+              variant="outlined"
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+
+            <Box
+              onDragOver={e => e.preventDefault()}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              sx={{
+                border: '2px dashed rgba(255,255,255,0.1)',
+                borderRadius: 3,
+                p: 4,
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  bgcolor: 'rgba(59, 130, 246, 0.05)',
+                },
+              }}
+            >
+              <CloudUploadIcon
+                sx={{
+                  fontSize: 40,
+                  mb: 1,
+                  color: files.length > 0 ? 'primary.main' : 'text.disabled',
+                }}
+              />
+              <Typography
+                variant="body2"
+                color="text.secondary"
+              >
+                {files.length > 0
+                  ? `${files.length} files selected`
+                  : 'Drag and drop DICOM files here or click to browse'}
+              </Typography>
+              <input
+                type="file"
+                multiple
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+              />
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={onClose}
+            disabled={isUploading}
+            sx={{ color: 'text.secondary' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={isUploading || files.length === 0}
+            startIcon={isUploading ? null : <PlusIcon />}
+            sx={{
+              borderRadius: 2,
+              px: 3,
+              background: 'linear-gradient(to right, #3b82f6, #2563eb)',
+              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+            }}
+          >
+            {isUploading ? 'Processing...' : 'Start Study'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+}
+
 // ── Main Export ────────────────────────────────────────────────────────────
 
 interface StudyListPageProps {
@@ -601,6 +784,57 @@ export function StudyListPage({
   const [localSearch, setLocalSearch] = useState(filterValues.patientName || '');
   const lastSentValue = useRef(filterValues.patientName || '');
   const [activeNav, setActiveNav] = useState('dashboard');
+
+  const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isNewStudyModalOpen, setIsNewStudyModalOpen] = useState(false);
+
+  const handleImportUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) {
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      await loadDICOMFiles(files);
+      const query = new URLSearchParams(window.location.search);
+      query.set('datasources', 'dicomlocal');
+      navigate(`?${query.toString()}`);
+    } catch (err) {
+      console.error('Failed to import studies:', err);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleNewStudySubmit = async (data: {
+    patientName: string;
+    studyDescription: string;
+    studyDate: string;
+    files: File[];
+  }) => {
+    setIsUploading(true);
+    try {
+      await loadDICOMFiles(data.files, {
+        patientName: data.patientName,
+        studyDescription: data.studyDescription,
+        studyDate: data.studyDate,
+      });
+      const query = new URLSearchParams(window.location.search);
+      query.set('datasources', 'dicomlocal');
+      navigate(`?${query.toString()}`);
+      setIsNewStudyModalOpen(false);
+    } catch (err) {
+      console.error('Failed to start new study:', err);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // Sync logic restored
   useEffect(() => {
@@ -746,11 +980,28 @@ export function StudyListPage({
                 justifyContent: isMobile ? 'space-between' : 'flex-end',
               }}
             >
+              {/* Hidden Inputs */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                multiple
+                onChange={handleImportUpload}
+              />
+              <NewStudyModal
+                open={isNewStudyModalOpen}
+                onClose={() => setIsNewStudyModalOpen(false)}
+                onSubmit={handleNewStudySubmit}
+                isUploading={isUploading}
+              />
+
               {/* Import button */}
               <ButtonBase
                 component={motion.button as any}
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
                 sx={{
                   flex: isMobile ? 1 : 'none',
                   display: 'flex',
@@ -760,16 +1011,17 @@ export function StudyListPage({
                   px: isMobile ? 1.5 : 2,
                   py: 0.875,
                   borderRadius: 2,
-                  bgcolor: 'rgba(255,255,255,0.05)',
+                  bgcolor: isUploading ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
                   border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'text.primary',
+                  color: isUploading ? 'text.disabled' : 'text.primary',
                   fontSize: '0.8125rem',
                   fontWeight: 500,
                   '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+                  cursor: isUploading ? 'not-allowed' : 'pointer',
                 }}
               >
                 <UploadIcon sx={{ fontSize: 18 }} />
-                Import
+                {isUploading && !isNewStudyModalOpen ? 'Processing...' : 'Import'}
               </ButtonBase>
 
               {/* New Study button */}
@@ -777,6 +1029,8 @@ export function StudyListPage({
                 component={motion.button as any}
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
+                onClick={() => setIsNewStudyModalOpen(true)}
+                disabled={isUploading}
                 sx={{
                   flex: isMobile ? 1 : 'none',
                   display: 'flex',
@@ -786,13 +1040,16 @@ export function StudyListPage({
                   px: isMobile ? 1.5 : 2,
                   py: 0.875,
                   borderRadius: 2,
-                  background: 'linear-gradient(to right, rgba(59,130,246,0.85), #3b82f6)',
+                  background: isUploading
+                    ? 'rgba(59,130,246,0.3)'
+                    : 'linear-gradient(to right, rgba(59,130,246,0.85), #3b82f6)',
                   color: 'white',
                   border: '1px solid rgba(59,130,246,0.5)',
                   fontSize: '0.8125rem',
                   fontWeight: 600,
-                  boxShadow: '0 0 16px rgba(59,130,246,0.3)',
+                  boxShadow: isUploading ? 'none' : '0 0 16px rgba(59,130,246,0.3)',
                   '&:hover': { boxShadow: '0 0 24px rgba(59,130,246,0.5)' },
+                  cursor: isUploading ? 'not-allowed' : 'pointer',
                 }}
               >
                 <PlusIcon sx={{ fontSize: 18 }} />

@@ -47,7 +47,7 @@ import { Box, Divider, IconButton, Tooltip, Popover, Slider, Typography } from '
 import { LayoutSelector } from './LayoutSelector';
 import { ScreenshotModal } from './ScreenshotModal';
 import { WindowLevelMenu } from './WindowLevelMenu';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ToolPanelProps {
   activeTool: string;
@@ -167,22 +167,22 @@ export function ToolPanel({
       <GlassPanel 
         className="flex-shrink scrollbar-hide" 
         sx={{ 
-            p: 1, 
+            p: 0.5, 
             display: 'flex', 
             flexDirection: 'column', 
             alignItems: 'center', 
             width: '100%',
             overflowY: 'auto',
             minHeight: 0,
-            gap: 1.5,
-            bgcolor: 'rgba(15, 23, 42, 0.6) !important', // Updates for dark theme consistency
+            gap: 0.25,
+            bgcolor: 'rgba(15, 23, 42, 0.6) !important',
             border: '1px solid rgba(255,255,255,0.08) !important'
         }}
       >
         {/* Navigation Group */}
         <ToolGroup tools={navTools} activeTool={activeTool} onSelect={setActiveTool} />
         
-        <Divider sx={{ width: '60%', bgcolor: 'rgba(255,255,255,0.1)' }} />
+        <Divider sx={{ width: '60%', bgcolor: 'rgba(255,255,255,0.05)', my: 0.5 }} />
         
         {/* Transform Group */}
         <ToolGroup tools={transformTools} activeTool={activeTool} onSelect={(id) => { /* Action handles it */ }} />
@@ -190,7 +190,7 @@ export function ToolPanel({
         {/* Adjustment Group */}
         <ToolGroup tools={adjustmentTools} activeTool={activeTool} onSelect={(id) => { /* Action handles it */ }} />
         
-        <Divider sx={{ width: '60%', bgcolor: 'rgba(255,255,255,0.1)' }} />
+        <Divider sx={{ width: '60%', bgcolor: 'rgba(255,255,255,0.05)', my: 0.5 }} />
 
         {/* Measurement Group */}
         <ToolGroup tools={measureTools} activeTool={activeTool} onSelect={setActiveTool} />
@@ -198,7 +198,7 @@ export function ToolPanel({
         {/* Annotation Group */}
         <ToolGroup tools={annotateTools} activeTool={activeTool} onSelect={setActiveTool} />
 
-        <Divider sx={{ width: '60%', bgcolor: 'rgba(255,255,255,0.1)' }} />
+        <Divider sx={{ width: '60%', bgcolor: 'rgba(255,255,255,0.05)', my: 0.5 }} />
 
         {/* View Group */}
         <ToolGroup tools={viewTools} activeTool={activeTool} onSelect={setActiveTool} />
@@ -228,7 +228,7 @@ export function ToolPanel({
             }
         />
 
-        <Divider sx={{ width: '60%', bgcolor: 'rgba(255,255,255,0.1)' }} />
+        <Divider sx={{ width: '60%', bgcolor: 'rgba(255,255,255,0.05)', my: 0.5 }} />
 
         {/* Export Group */}
         <ToolGroup tools={exportTools} activeTool={activeTool} onSelect={() => {}} />
@@ -255,11 +255,11 @@ export function ToolPanel({
                     onClick={(e) => setAdjustmentsAnchor(e.currentTarget)} 
                     sx={{ 
                         color: Boolean(adjustmentsAnchor) ? '#3b82f6' : '#94a3b8',
-                        p: 1.5,
+                        p: 1,
                         '&:hover': { color: '#f8fafc', bgcolor: 'rgba(255,255,255,0.05)' } 
                     }}
                 >
-                    <TuneIcon />
+                    <TuneIcon sx={{ fontSize: 20 }} />
                 </IconButton>
             </Tooltip>
         </Box>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ButtonBase, Menu, MenuItem, ListItemIcon, Tooltip, Box } from '@mui/material';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { ArrowDropDown } from '@mui/icons-material';
 
 interface Tool {
@@ -77,13 +77,13 @@ export function ToolGroup({ tools, activeTool, onSelect, direction = 'right' }: 
           }}
           sx={{
             position: 'relative',
-            p: 1.5,
+            p: 0.75,
             borderRadius: 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: isActive ? 'rgba(59, 130, 246, 0.2)' : 'transparent', // Subtle blue tint
-            color: isActive ? '#3b82f6' : '#94a3b8', // Blue vs Slate-400
+            bgcolor: 'transparent',
+            color: isActive ? '#3b82f6' : '#94a3b8',
             transition: 'all 0.2s',
             '&:hover': {
               bgcolor: 'rgba(255,255,255,0.05)',
@@ -91,10 +91,19 @@ export function ToolGroup({ tools, activeTool, onSelect, direction = 'right' }: 
             },
             width: '100%',
             aspectRatio: '1/1',
-            minHeight: 44,
+            minHeight: 32,
           }}
         >
-          <Icon sx={{ fontSize: 22 }} />
+          <motion.div
+            animate={{ 
+              scale: isActive ? 1.3 : 1,
+              filter: isActive ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))' : 'none'
+            }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            style={{ display: 'flex' }}
+          >
+            <Icon sx={{ fontSize: 20, fontWeight: isActive ? 900 : 400 }} />
+          </motion.div>
           
           {/* Triangle Indicator for Nested Tools */}
           {tools.length > 1 && (

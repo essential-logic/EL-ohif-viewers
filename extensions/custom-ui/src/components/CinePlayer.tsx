@@ -7,7 +7,7 @@ import {
   SkipPrevious as PrevFrameIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import { Box, IconButton, Slider, Typography, Paper } from '@mui/material';
+import { Box, IconButton, Slider, Typography, Paper, useTheme, useMediaQuery } from '@mui/material';
 
 interface CinePlayerProps {
   open: boolean;
@@ -31,6 +31,9 @@ export function CinePlayer({
   totalFrames,
   onFrameChange,
 }: CinePlayerProps) {
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
+
   return (
     <AnimatePresence>
       {open && (
@@ -40,22 +43,25 @@ export function CinePlayer({
           exit={{ opacity: 0, y: -20, x: '-50%' }}
           style={{
             position: 'absolute',
-            top: 80,
+            top: isMobile ? 60 : 80,
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 1000,
+            width: isMobile ? 'calc(100% - 32px)' : 'auto',
+            maxWidth: isMobile ? 400 : 'none',
           }}
         >
           <Paper
             sx={{
-              bgcolor: 'rgba(15, 23, 42, 0.8)',
+              bgcolor: 'rgba(15, 23, 42, 0.85)',
               backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: 3,
-              p: 1,
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: isMobile ? 2 : 3,
+              p: isMobile ? 0.5 : 1,
               display: 'flex',
               alignItems: 'center',
-              gap: 1,
+              justifyContent: 'space-between',
+              gap: isMobile ? 0.5 : 1,
               boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)',
             }}
           >
@@ -94,8 +100,16 @@ export function CinePlayer({
               </IconButton>
             </Box>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2 }}>
-              <Box sx={{ width: 120 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: isMobile ? 1 : 2,
+                px: isMobile ? 1 : 2,
+                flex: 1,
+              }}
+            >
+              <Box sx={{ flex: 1, minWidth: isMobile ? 60 : 120 }}>
                 <Slider
                   size="small"
                   value={currentFrame}
@@ -107,9 +121,15 @@ export function CinePlayer({
               </Box>
               <Typography
                 variant="caption"
-                sx={{ fontFamily: 'monospace', minWidth: 60, textAlign: 'center', fontWeight: 700 }}
+                sx={{
+                  fontFamily: 'monospace',
+                  minWidth: isMobile ? 45 : 60,
+                  textAlign: 'center',
+                  fontWeight: 700,
+                  fontSize: isMobile ? '0.65rem' : '0.75rem',
+                }}
               >
-                {currentFrame} / {totalFrames}
+                {currentFrame}/{totalFrames}
               </Typography>
             </Box>
 

@@ -1,6 +1,5 @@
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../Dialog';
-import { cn } from '../../lib/utils';
+import { Dialog, DialogContent, DialogContentBody, DialogHeader, DialogTitle } from '../Dialog';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -18,6 +17,7 @@ const Modal: React.FC<ModalProps> = ({
   onClose,
   title,
   children,
+  contentClassName,
   shouldCloseOnEsc = true,
   shouldCloseOnOverlayClick = true,
   containerClassName,
@@ -35,7 +35,7 @@ const Modal: React.FC<ModalProps> = ({
             <DialogTitle>{title}</DialogTitle>
           </DialogHeader>
         )}
-        <div className={cn('mt-2')}>{children}</div>
+        <DialogContentBody className={contentClassName}>{children}</DialogContentBody>
       </DialogContent>
     </Dialog>
   );

@@ -103,40 +103,48 @@ export function ToolGroup({ tools, activeTool, onSelect, direction = 'right' }: 
           }}
           sx={{
             position: 'relative',
-            p: 1.5,
-            borderRadius: 1,
+            p: 1.25,
+            borderRadius: 0.5,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: isActive ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+            bgcolor: 'transparent',
             color: isActive ? '#3b82f6' : '#94a3b8',
-            transition: 'all 0.2s',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             '&:hover': {
               bgcolor: 'rgba(255,255,255,0.05)',
               color: isActive ? '#60a5fa' : '#f8fafc',
             },
             width: '100%',
             aspectRatio: '1/1',
-            minHeight: 44,
+            minHeight: 44, // Slightly tighter as requested before
           }}
         >
-          {IconElement ? <IconElement sx={{ fontSize: 22 }} /> : currentTool.icon}
+          <motion.div
+            animate={{ 
+              scale: isActive ? 1.3 : 1,
+              filter: isActive ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))' : 'none'
+            }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            style={{ display: 'flex' }}
+          >
+            {IconElement ? <IconElement sx={{ fontSize: 22 }} /> : currentTool.icon}
+          </motion.div>
 
-          {tools.length > 1 && (
-            <Box
-              sx={{
-                position: 'absolute',
-                bottom: 2,
-                right: 2,
-                width: 0,
-                height: 0,
-                borderStyle: 'solid',
-                borderWidth: '0 0 5px 5px',
-                borderColor: 'transparent transparent currentColor transparent',
-                opacity: 0.7,
-              }}
-            />
-          )}
+          {/* Corner sub-menu indicator (triangle) as requested in image */}
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: 4,
+              right: 4,
+              width: 0,
+              height: 0,
+              borderStyle: 'solid',
+              borderWidth: '0 0 5px 5px',
+              borderColor: `transparent transparent ${isActive ? 'rgba(255,255,255,0.5)' : 'rgba(148, 163, 184, 0.3)'} transparent`,
+              transition: 'border-color 0.2s',
+            }}
+          />
         </ButtonBase>
       </Tooltip>
 

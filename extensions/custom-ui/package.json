@@ -2,7 +2,7 @@
   "name": "@ohif/extension-custom-ui",
   "version": "1.0.0",
   "description": "Custom UI Extension for OHIF using Material-UI",
-  "author": "Antigravity",
+  "author": "Essential Logic",
   "license": "MIT",
   "main": "src/index.tsx",
   "publishConfig": {
