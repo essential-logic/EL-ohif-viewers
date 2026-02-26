@@ -5,7 +5,14 @@ import { motion } from 'framer-motion';
 // Create a Motion component from MUI Paper
 const MotionPaper = motion(Paper);
 
-export function GlassPanel({ children, className = '', sx, ...props }: any) {
+interface GlassPanelProps {
+  children: React.ReactNode;
+  className?: string;
+  sx?: object;
+  [key: string]: unknown;
+}
+
+export function GlassPanel({ children, className = '', sx, ...props }: GlassPanelProps) {
   return (
     <MotionPaper
       className={className}
