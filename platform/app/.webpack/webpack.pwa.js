@@ -86,8 +86,10 @@ module.exports = (env, argv) => {
       // For debugging re-renders
       // MillionLint.webpack(),
       new Dotenv(),
-      // Clean output.path
-      new CleanWebpackPlugin(),
+      // In production: clean dist before rebuilding.
+      // In dev: skip — CleanWebpackPlugin would nuke and rewrite 294 MB dist before
+      // the browser can load anything, adding several minutes to every restart.
+      ...(isProdBuild ? [new CleanWebpackPlugin()] : []),
       // Copy "Public" Folder to Dist
       new CopyWebpackPlugin({
         patterns: [
@@ -127,10 +129,11 @@ module.exports = (env, argv) => {
           PUBLIC_URL: PUBLIC_URL,
         },
       }),
-      // Generate a service worker for fast local loads
-      ...(IS_COVERAGE
-        ? []
-        : [
+      // Generate a service worker — production only.
+      // In dev the service worker precaches 294 MB (286 URLs) causing 5+ min browser
+      // load times. Skip it entirely during development for instant page loads.
+      ...(isProdBuild && !IS_COVERAGE
+        ? [
             new InjectManifest({
               swDest: 'sw.js',
               swSrc: path.join(SRC_DIR, 'service-worker.js'),
@@ -139,7 +142,8 @@ module.exports = (env, argv) => {
               // Cache large files for the manifests to avoid warning messages
               maximumFileSizeToCacheInBytes: 1024 * 1024 * 50,
             }),
-          ]),
+          ]
+        : []),
     ],
     // https://webpack.js.org/configuration/dev-server/
     devServer: {
@@ -177,7 +181,26 @@ module.exports = (env, argv) => {
         index: PUBLIC_URL + 'index.html',
       },
       devMiddleware: {
-        writeToDisk: true,
+        // Only write the small critical files to disk — these must be physically on disk
+        // because they are loaded via <script src> or fetch() outside webpack's module graph.
+        // Skip the massive static ort/ (136 MB) and dicom-microscopy/ (19.7 MB) assets
+        // that are already present on disk from the first run and never change between
+        // compiles. This drops post-compile disk-write time from ~minutes to ~seconds.
+        writeToDisk: filePath => {
+          // Always write: html, app config, service worker init, manifest, small assets
+          if (/\.(html|json|png|svg|txt)$/.test(filePath)) return true;
+          if (/app-config\.js$/.test(filePath)) return true;
+          if (/init-service-worker\.js$/.test(filePath)) return true;
+          if (/(google|_redirects|_headers|serve\.json)/.test(filePath)) return true;
+          // Write JS/CSS bundles so HMR updates are served correctly
+          if (
+            /\.(js|css|map)$/.test(filePath) &&
+            !/\/(ort|dicom-microscopy-viewer)\//.test(filePath)
+          )
+            return true;
+          // Skip the massive static model/microscopy assets (already on disk)
+          return false;
+        },
       },
     },
   });

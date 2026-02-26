@@ -94,6 +94,10 @@ module.exports = (env, argv, { SRC_DIR, ENTRY }) => {
     },
     cache: {
       type: 'filesystem',
+      cacheDirectory: path.resolve(__dirname, '../.cache/webpack'),
+      buildDependencies: {
+        config: [__filename],
+      },
     },
     module: {
       noParse: [/(dicomicc)/],

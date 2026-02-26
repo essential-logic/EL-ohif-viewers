@@ -1,0 +1,118 @@
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  PlayArrow as PlayIcon, 
+  Pause as PauseIcon, 
+  SkipNext as NextFrameIcon, 
+  SkipPrevious as PrevFrameIcon,
+  Close as CloseIcon,
+  Settings as SettingsIcon
+} from '@mui/icons-material';
+import { Box, IconButton, Slider, Typography, Tooltip, Paper } from '@mui/material';
+
+interface CinePlayerProps {
+  open: boolean;
+  isPlaying: boolean;
+  onPlayPause: () => void;
+  onClose: () => void;
+  frameRate: number;
+  onFrameRateChange: (fps: number) => void;
+  currentFrame: number;
+  totalFrames: number;
+  onFrameChange: (frame: number) => void;
+}
+
+export function CinePlayer({
+  open,
+  isPlaying,
+  onPlayPause,
+  onClose,
+  frameRate,
+  onFrameRateChange,
+  currentFrame,
+  totalFrames,
+  onFrameChange
+}: CinePlayerProps) {
+  
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+           initial={{ opacity: 0, y: -20, x: '-50%' }}
+           animate={{ opacity: 1, y: 0, x: '-50%' }}
+           exit={{ opacity: 0, y: -20, x: '-50%' }}
+           style={{
+             position: 'absolute',
+             top: 80, // Below toolbar
+             left: '50%',
+             transform: 'translateX(-50%)',
+             zIndex: 20
+           }}
+        >
+          <Paper 
+            elevation={4}
+            sx={{
+              bgcolor: 'rgba(10, 25, 41, 0.8)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: 3,
+              p: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}
+          >
+             <Box sx={{ display: 'flex', alignItems: 'center', px: 1, borderRight: '1px solid rgba(255,255,255,0.1)' }}>
+                <IconButton size="small" onClick={() => onFrameChange(Math.max(1, currentFrame - 1))}>
+                   <PrevFrameIcon fontSize="small" />
+                </IconButton>
+                
+                <IconButton 
+                  onClick={onPlayPause}
+                  color="primary" 
+                  sx={{ 
+                    mx: 0.5,
+                    bgcolor: 'rgba(59, 130, 246, 0.1)', 
+                    '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.25)' } 
+                  }}
+                >
+                   {isPlaying ? <PauseIcon /> : <PlayIcon />}
+                </IconButton>
+                
+                <IconButton size="small" onClick={() => onFrameChange(Math.min(totalFrames, currentFrame + 1))}>
+                   <NextFrameIcon fontSize="small" />
+                </IconButton>
+             </Box>
+
+             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2 }}>
+                <Box sx={{ width: 100 }}>
+                    <Slider 
+                        size="small"
+                        value={currentFrame}
+                        min={1}
+                        max={totalFrames}
+                        onChange={(_, v) => onFrameChange(v as number)}
+                        sx={{ color: 'primary.main', height: 3 }}
+                    />
+                </Box>
+                <Typography variant="caption" sx={{ fontFamily: 'monospace', minWidth: 60, textAlign: 'center' }}>
+                     {currentFrame} / {totalFrames}
+                </Typography>
+             </Box>
+            
+             <Box sx={{ display: 'flex', alignItems: 'center', pl: 1, borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+                 <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: 1, px: 1, py: 0.5 }}>
+                     <Typography variant="caption" sx={{ mr: 1, color: 'text.secondary' }}>FPS</Typography>
+                     <Typography variant="caption" fontWeight={600}>{frameRate}</Typography>
+                 </Box>
+                 <IconButton size="small" onClick={onClose} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
+                    <CloseIcon fontSize="small" />
+                 </IconButton>
+             </Box>
+             
+          </Paper>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
