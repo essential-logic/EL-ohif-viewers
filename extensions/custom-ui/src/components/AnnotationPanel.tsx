@@ -8,23 +8,44 @@ import {
   Delete as TrashIcon,
   Visibility as EyeIcon,
   VisibilityOff as EyeOffIcon,
-  Straighten as RulerIcon,
   DeleteSweep as ClearAllIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
+import PropTypes from 'prop-types';
+import { ServicesManager, CommandsManager } from '@ohif/core';
 import { GlassPanel } from './GlassPanel';
 import { Box, Typography, IconButton, ButtonBase, Tooltip, Stack } from '@mui/material';
 
-export function AnnotationPanel({ 
-  servicesManager, 
-  commandsManager, 
-  activeTool: globalActiveTool, 
-  setActiveTool: setGlobalActiveTool 
-}) {
+interface Measurement {
+  uid: string;
+  label?: string;
+  toolName?: string;
+  type?: string;
+  color?: string;
+  isVisible?: boolean;
+  displayText?: string | string[];
+  metadata?: {
+    SeriesDescription?: string;
+  };
+}
+
+interface AnnotationPanelProps {
+  servicesManager: ServicesManager;
+  commandsManager: CommandsManager;
+  activeTool?: string;
+  setActiveTool?: (tool: string) => void;
+}
+
+export function AnnotationPanel({
+  servicesManager,
+  commandsManager,
+  activeTool: globalActiveTool,
+  setActiveTool: setGlobalActiveTool,
+}: AnnotationPanelProps) {
   const { measurementService, viewportGridService, toolGroupService } = servicesManager.services;
-  const [measurements, setMeasurements] = useState([]);
-  const [activeViewportId, setActiveViewportId] = useState(null);
-  const [activeTool, setActiveTool] = useState(null);
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [activeViewportId, setActiveViewportId] = useState<string | null>(null);
+  const [activeTool, setActiveTool] = useState<string | null>(null);
 
   // Sync with active viewport
   useEffect(() => {
@@ -33,7 +54,7 @@ export function AnnotationPanel({
 
     const unsubGrid = viewportGridService.subscribe(
       viewportGridService.EVENTS.ACTIVE_VIEWPORT_ID_CHANGED,
-      (state) => {
+      (state: { activeViewportId: string }) => {
         if (state.activeViewportId) {
           setActiveViewportId(state.activeViewportId);
         }
@@ -53,9 +74,18 @@ export function AnnotationPanel({
 
     const subscriptions = [
       measurementService.subscribe(measurementService.EVENTS.MEASUREMENT_ADDED, updateMeasurements),
-      measurementService.subscribe(measurementService.EVENTS.MEASUREMENT_REMOVED, updateMeasurements),
-      measurementService.subscribe(measurementService.EVENTS.MEASUREMENT_UPDATED, updateMeasurements),
-      measurementService.subscribe(measurementService.EVENTS.MEASUREMENTS_CLEARED, updateMeasurements),
+      measurementService.subscribe(
+        measurementService.EVENTS.MEASUREMENT_REMOVED,
+        updateMeasurements
+      ),
+      measurementService.subscribe(
+        measurementService.EVENTS.MEASUREMENT_UPDATED,
+        updateMeasurements
+      ),
+      measurementService.subscribe(
+        measurementService.EVENTS.MEASUREMENTS_CLEARED,
+        updateMeasurements
+      ),
     ];
 
     return () => subscriptions.forEach(s => s.unsubscribe());
@@ -64,12 +94,14 @@ export function AnnotationPanel({
   // Track active tool and UI state
   useEffect(() => {
     const updateActiveTool = () => {
-      if (!activeViewportId) return;
+      if (!activeViewportId) {
+        return;
+      }
       const toolGroup = toolGroupService.getToolGroupForViewport(activeViewportId);
       if (toolGroup) {
         const toolName = toolGroup.getActivePrimaryMouseButtonTool();
         setActiveTool(toolName);
-        
+
         // Update global state to sync toolbar
         if (setGlobalActiveTool && toolName) {
           setGlobalActiveTool(toolName);
@@ -79,19 +111,22 @@ export function AnnotationPanel({
 
     updateActiveTool();
 
-    const unsubTools = toolGroupService.subscribe(
-      toolGroupService.EVENTS.TOOL_ACTIVATED,
-      updateActiveTool
-    );
+    const unsubTools = (
+      toolGroupService as unknown as {
+        subscribe: (name: string, cb: () => void) => { unsubscribe: () => void };
+      }
+    ).subscribe(toolGroupService.EVENTS.TOOL_ACTIVATED, updateActiveTool);
 
     return () => unsubTools.unsubscribe();
   }, [activeViewportId, toolGroupService, setGlobalActiveTool]);
 
-  const handleToolClick = (toolName) => {
-    const toolGroup = toolGroupService.getToolGroupForViewport(activeViewportId);
+  const handleToolClick = (toolName: string) => {
+    const toolGroup = toolGroupService.getToolGroupForViewport(activeViewportId) as unknown as {
+      id: string;
+    } | null;
     const toolGroupId = toolGroup?.id || 'default';
     const toolGroupIds = ['default', 'mpr', 'SRToolGroup', 'volume3d', toolGroupId];
-    
+
     // Optimistic UI update
     setActiveTool(toolName);
     if (setGlobalActiveTool) {
@@ -99,7 +134,7 @@ export function AnnotationPanel({
     }
 
     try {
-      commandsManager.run('setToolActiveToolbar', {
+      commandsManager.runCommand('setToolActiveToolbar', {
         toolName,
         itemId: toolName,
         toolGroupIds,
@@ -107,44 +142,48 @@ export function AnnotationPanel({
     } catch (e) {
       console.warn('AnnotationPanel: Failed to run setToolActiveToolbar', e);
       toolGroupIds.forEach(id => {
-        commandsManager.run('setToolActive', { 
-          toolName, 
+        commandsManager.runCommand('setToolActive', {
+          toolName,
           toolGroupId: id,
         });
       });
     }
   };
 
-  const handleDelete = (uid) => {
+  const handleDelete = (uid: string) => {
     measurementService.remove(uid);
   };
 
-  const handleToggleVisibility = (uid) => {
-    commandsManager.run('toggleVisibilityMeasurement', { uid });
+  const handleToggleVisibility = (uid: string) => {
+    commandsManager.runCommand('toggleVisibilityMeasurement', { uid });
   };
 
   const handleClearAll = () => {
     measurementService.clearMeasurements();
   };
 
-  const getDisplayName = (ann, index, allMeasurements) => {
-    if (ann.label) return ann.label;
-    
-    const sameType = allMeasurements.filter(m => (m.toolName || m.type) === (ann.toolName || ann.type));
+  const getDisplayName = (ann: Measurement, index: number, allMeasurements: Measurement[]) => {
+    if (ann.label) {
+      return ann.label;
+    }
+
+    const sameType = allMeasurements.filter(
+      m => (m.toolName || m.type) === (ann.toolName || ann.type)
+    );
     const typeIndex = sameType.indexOf(ann) + 1;
     const typeName = ann.toolName || ann.type || 'Measurement';
-    
+
     // Clean up internal names (e.g. ArrowAnnotate -> Arrow)
     const cleanName = typeName.replace('Annotate', '').replace('ROI', '');
     return `${cleanName} ${typeIndex}`;
   };
 
-  const handleRename = (uid) => {
-    commandsManager.run('setMeasurementLabel', { uid });
+  const handleRename = (uid: string) => {
+    commandsManager.runCommand('setMeasurementLabel', { uid });
   };
 
-  const handleJumpTo = (uid) => {
-    commandsManager.run('jumpToMeasurement', { uid });
+  const handleJumpTo = (uid: string) => {
+    commandsManager.runCommand('jumpToMeasurement', { uid });
   };
 
   const tools = [
@@ -169,9 +208,9 @@ export function AnnotationPanel({
           <IconButton
             size="small"
             onClick={handleClearAll}
-            sx={{ 
-                color: 'error.main',
-                '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.1)' }
+            sx={{
+              color: 'error.main',
+              '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.1)' },
             }}
           >
             <ClearAllIcon fontSize="small" />
@@ -188,10 +227,14 @@ export function AnnotationPanel({
           mb: 4,
         }}
       >
-        {tools.map((tool) => {
+        {tools.map(tool => {
           const isActive = activeTool === tool.id;
           return (
-            <Tooltip key={tool.id} title={tool.label} placement="top">
+            <Tooltip
+              key={tool.id}
+              title={tool.label}
+              placement="top"
+            >
               <ButtonBase
                 component={motion.button}
                 whileHover={{ scale: 1.05 }}
@@ -220,10 +263,10 @@ export function AnnotationPanel({
                 <tool.icon sx={{ fontSize: 24, mb: 1 }} />
                 <Typography
                   variant="caption"
-                  sx={{ 
-                    fontSize: '0.65rem', 
+                  sx={{
+                    fontSize: '0.65rem',
                     fontWeight: isActive ? 700 : 500,
-                    letterSpacing: 0.5 
+                    letterSpacing: 0.5,
                   }}
                 >
                   {tool.label}
@@ -246,7 +289,7 @@ export function AnnotationPanel({
             display: 'block',
             mb: 2,
             px: 0.5,
-            fontSize: '0.7rem'
+            fontSize: '0.7rem',
           }}
         >
           Recent Activity
@@ -255,7 +298,10 @@ export function AnnotationPanel({
         <AnimatePresence mode="popLayout">
           {measurements.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 8, opacity: 0.4 }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                color="text.secondary"
+              >
                 No annotations found
               </Typography>
             </Box>
@@ -279,58 +325,71 @@ export function AnnotationPanel({
                       cursor: 'pointer',
                       position: 'relative',
                       overflow: 'hidden',
-                      '&:hover': { 
-                        bgcolor: 'rgba(59, 130, 246, 0.04)', 
+                      '&:hover': {
+                        bgcolor: 'rgba(59, 130, 246, 0.04)',
                         borderColor: 'primary.main',
-                        '& .tool-actions': { opacity: 1 }
+                        '& .tool-actions': { opacity: 1 },
                       },
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        mb: 1,
+                      }}
+                    >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                         <Box sx={{ 
-                           width: 8, 
-                           height: 8, 
-                           borderRadius: '50%', 
-                           bgcolor: ann.color || 'primary.main' 
-                         }} />
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            bgcolor: ann.color || 'primary.main',
+                          }}
+                        />
                         <Typography
                           variant="caption"
-                          sx={{ 
-                            fontWeight: 800, 
-                            color: ann.label ? 'primary.main' : 'text.primary', 
-                            letterSpacing: 0.5 
+                          sx={{
+                            fontWeight: 800,
+                            color: ann.label ? 'primary.main' : 'text.primary',
+                            letterSpacing: 0.5,
                           }}
                         >
                           {getDisplayName(ann, index, measurements)}
                         </Typography>
                       </Box>
-                      
-                      <Box 
+
+                      <Box
                         className="tool-actions"
-                        sx={{ 
-                          display: 'flex', 
-                          gap: 0.3, 
+                        sx={{
+                          display: 'flex',
+                          gap: 0.3,
                           opacity: 0.6,
-                          transition: 'opacity 0.2s' 
+                          transition: 'opacity 0.2s',
                         }}
                       >
                         <Tooltip title="Rename">
                           <IconButton
                             size="small"
-                            onClick={(e) => {
+                            onClick={e => {
                               e.stopPropagation();
                               handleRename(ann.uid);
                             }}
-                            sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                            sx={{
+                              p: 0.5,
+                              color: 'text.secondary',
+                              '&:hover': { color: 'primary.main' },
+                            }}
                           >
                             <EditIcon sx={{ fontSize: 14 }} />
                           </IconButton>
                         </Tooltip>
                         <IconButton
                           size="small"
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
                             handleToggleVisibility(ann.uid);
                           }}
@@ -344,14 +403,14 @@ export function AnnotationPanel({
                         </IconButton>
                         <IconButton
                           size="small"
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
                             handleDelete(ann.uid);
                           }}
-                          sx={{ 
-                            p: 0.5, 
+                          sx={{
+                            p: 0.5,
                             color: 'text.secondary',
-                            '&:hover': { color: 'error.main' }
+                            '&:hover': { color: 'error.main' },
                           }}
                         >
                           <TrashIcon sx={{ fontSize: 16 }} />
@@ -363,30 +422,32 @@ export function AnnotationPanel({
                       <Typography
                         variant="caption"
                         color="text.secondary"
-                        sx={{ 
-                          display: 'block', 
-                          fontSize: '0.75rem', 
+                        sx={{
+                          display: 'block',
+                          fontSize: '0.75rem',
                           lineHeight: 1.4,
                           mb: 1,
                           pl: 2,
-                          borderLeft: '2px solid rgba(255,255,255,0.1)'
+                          borderLeft: '2px solid rgba(255,255,255,0.1)',
                         }}
                       >
-                        {Array.isArray(ann.displayText) ? ann.displayText.join(', ') : ann.displayText}
+                        {Array.isArray(ann.displayText)
+                          ? ann.displayText.join(', ')
+                          : ann.displayText}
                       </Typography>
                     )}
 
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                        <Typography
+                      <Typography
                         variant="caption"
                         sx={{
-                            color: 'text.disabled',
-                            fontSize: '0.6rem',
-                            fontWeight: 600,
+                          color: 'text.disabled',
+                          fontSize: '0.6rem',
+                          fontWeight: 600,
                         }}
-                        >
+                      >
                         {ann.metadata?.SeriesDescription || 'Local Annotation'}
-                        </Typography>
+                      </Typography>
                     </Box>
                   </Box>
                 </motion.div>
@@ -398,3 +459,10 @@ export function AnnotationPanel({
     </GlassPanel>
   );
 }
+
+AnnotationPanel.propTypes = {
+  servicesManager: PropTypes.object.isRequired,
+  commandsManager: PropTypes.object.isRequired,
+  activeTool: PropTypes.string,
+  setActiveTool: PropTypes.func,
+};

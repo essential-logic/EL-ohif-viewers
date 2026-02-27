@@ -8,12 +8,10 @@ import {
 import { Box, Typography, Collapse, Tooltip, ButtonBase } from '@mui/material';
 import { GlassPanel } from './GlassPanel';
 
-interface Manager {
-  runCommand: (id: string, args?: Record<string, unknown>) => unknown;
-}
+import { CommandsManager } from '@ohif/core';
 
 interface ImageAdjustmentPanelProps {
-  commandsManager?: Manager;
+  commandsManager?: CommandsManager;
 }
 
 // LUT (colormap) options – a useful subset from colormaps.js
@@ -197,7 +195,6 @@ export function ImageAdjustmentPanel({ commandsManager }: ImageAdjustmentPanelPr
       </Collapse>
 
       <Box sx={{ height: '1px', bgcolor: 'rgba(255,255,255,0.05)', mb: 1, mx: -0.5 }} />
-
     </GlassPanel>
   );
 }
