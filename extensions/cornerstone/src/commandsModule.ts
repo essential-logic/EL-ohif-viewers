@@ -1710,7 +1710,7 @@ function commandsModule({
 
       const displaySetInstanceUIDs = await createReportAsync({
         servicesManager,
-        getReport: () => commandsManager.runCommand('storeSegmentation', args),
+        getReport: () => commandsManager.runCommand('storeSegmentation', args, 'SEGMENTATION'),
         reportType: 'Segmentation',
       });
 

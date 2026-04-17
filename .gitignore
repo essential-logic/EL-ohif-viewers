@@ -65,3 +65,13 @@ tests/playwright-report/
 *~
 Sample-Ui-Design
 testdata
+
+# Environment / secrets - NEVER commit these
+.env
+.env.*
+!.env.example
+
+# Local test scripts (may contain credentials)
+test-*.js
+test-*.mjs
+config.txt

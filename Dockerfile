@@ -60,7 +60,8 @@ COPY --parents ./addOns/package.json ./addOns/*/*/package.json ./extensions/*/pa
 
 RUN bun pm cache rm
 RUN bun install
-RUN bun add ajv@8.12.0
+# NOTE: bun add hangs in Docker due to lockfile rewriting — use npm for this one package
+RUN npm install ajv@8.12.0 --no-save --legacy-peer-deps
 # Copy the local directory
 COPY --link --exclude=yarn.lock --exclude=package.json --exclude=Dockerfile . .
 

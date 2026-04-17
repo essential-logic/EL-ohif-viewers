@@ -32,6 +32,10 @@ window.config = {
         thumbnailRendering: 'wadors',
         dicomUploadEnabled: true,
         omitQuotationForMultipartRequest: true,
+        bulkDataURI: {
+          enabled: true,
+          relativeResolution: 'studies',
+        },
       },
     },
     {
@@ -40,9 +44,9 @@ window.config = {
       configuration: {
         friendlyName: 'AWS S3 Static wado server',
         name: 'aws',
-        wadoUriRoot: 'https://d14fa38qiwhyfd.cloudfront.net/dicomweb',
-        qidoRoot: 'https://d14fa38qiwhyfd.cloudfront.net/dicomweb',
-        wadoRoot: 'https://d14fa38qiwhyfd.cloudfront.net/dicomweb',
+        wadoUriRoot: 'https://d33do7qe4w26qo.cloudfront.net/dicomweb',
+        qidoRoot: 'https://d33do7qe4w26qo.cloudfront.net/dicomweb',
+        wadoRoot: 'https://d33do7qe4w26qo.cloudfront.net/dicomweb',
         qidoSupportsIncludeField: false,
         imageRendering: 'wadors',
         thumbnailRendering: 'wadors',
@@ -104,6 +108,6 @@ window.config = {
     },
   ],
   httpErrorHandler: error => {
-    console.warn(`HTTP Error Handler (status: ${error.status})`, error);
+    console.warn(`HTTP Error Handler (status: ${error?.status || 'unknown'})`, error);
   },
 };

@@ -1,5 +1,5 @@
 import { eventTarget, EVENTS } from '@cornerstonejs/core';
-import { Enums } from '@cornerstonejs/tools';
+import { Enums, ToolGroupManager } from '@cornerstonejs/tools';
 import { CommandsManager, CustomizationService } from '@ohif/core';
 import { findNearbyToolData } from './utils/findNearbyToolData';
 
@@ -70,10 +70,36 @@ function initDoubleClick({ customizationService, commandsManager }: initDoubleCl
   let lastRightClickElement = null;
 
   const cornerstoneViewportHandleMouseDown = (evt: CustomEvent) => {
-    const { event, element } = evt.detail;
+    const { event, element, renderingEngineId, viewportId } = evt.detail;
 
     // button 2 is right click
     if (event.button === 2) {
+      // Check if there's an active tool bound to the secondary mouse button (right click).
+      // If so, do not intercept or track for manual double-clicks, as it will break dragged tool behaviors.
+      const toolGroup = ToolGroupManager?.getToolGroupForViewport(viewportId, renderingEngineId);
+      let hasRightClickTool = false;
+
+      if (toolGroup && toolGroup.toolOptions) {
+        hasRightClickTool = Object.values(toolGroup.toolOptions).some(
+          (option: Record<string, unknown>) => {
+            return (
+              option.mode === 'Active' &&
+              Array.isArray(option.bindings) &&
+              option.bindings.some(
+                (binding: Record<string, unknown>) =>
+                  binding.mouseButton === Enums.MouseBindings.Secondary
+              )
+            );
+          }
+        );
+      }
+
+      if (hasRightClickTool) {
+        lastRightClickTime = 0;
+        lastRightClickElement = null;
+        return;
+      }
+
       const currentTime = Date.now();
       if (
         lastRightClickElement === element &&

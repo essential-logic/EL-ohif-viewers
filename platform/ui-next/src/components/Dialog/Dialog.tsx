@@ -100,6 +100,7 @@ const DialogContent = React.forwardRef<
       className={contentClassName}
       {...props}
       style={style}
+      aria-describedby={props['aria-describedby'] || undefined}
       onPointerDown={isDraggable ? handlePointerDown : props.onPointerDown}
       onEscapeKeyDown={event => {
         if (!shouldCloseOnEsc) {

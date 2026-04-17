@@ -1,0 +1,117 @@
+version: '3.8'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EL-OHIF Viewer — Production on Hostinger VPS
+# Image: psda2/el-ohif-viewer:latest
+#
+# Data Sources configured:
+#   1. 🏥 Orthanc (DEFAULT) — http://76.13.99.8:8042  [Upload enabled]
+#   2. ☁️  AWS CloudFront   — Public OHIF demo studies [Read-only]
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  ohif-viewer:
+    image: psda2/el-ohif-viewer:latest
+    container_name: el-ohif-viewer
+    ports:
+      - '8080:8080'
+    environment:
+      - PORT=8080
+      - PUBLIC_URL=/
+      - ORTHANC_ROOT_HOST=76.13.99.8
+      - ORTHANC_HOST=https://xyuxiachrjpcrmiephqa.supabase.co/functions/v1/orthanc-proxy
+      - |
+        APP_CONFIG=window.config={
+          "routerBasename":"/",
+          "showStudyList":true,
+          "extensions":[],
+          "modes":[],
+          "showWarningMessageForCrossOrigin":false,
+          "showCPUFallbackMessage":true,
+          "showLoadingIndicator":true,
+          "strictZSpacingForVolumeViewport":true,
+          "maxNumberOfWebWorkers":3,
+          "groupEnabledModesFirst":true,
+          "allowMultiSelectExport":true,
+          "studyPrefetcher":{"enabled":true,"displaySetsCount":2,"maxNumPrefetchRequests":10,"order":"closest"},
+          "defaultDataSourceName":"orthanc",
+          "dataSources":[
+            {
+              "namespace":"@ohif/extension-default.dataSourcesModule.dicomweb",
+              "sourceName":"orthanc",
+              "configuration":{
+                "friendlyName":"My PACS (Secure User Isolation)",
+                "name":"orthanc",
+                "wadoUriRoot":"/wado",
+                "qidoRoot":"/dicom-web",
+                "wadoRoot":"/dicom-web",
+                "qidoSupportsIncludeField":true,
+                "supportsReject":true,
+                "dicomUploadEnabled":true,
+                "imageRendering":"wadors",
+                "thumbnailRendering":"wadors",
+                "enableStudyLazyLoad":true,
+                "supportsFuzzyMatching":true,
+                "supportsWildcard":true,
+                "omitQuotationForMultipartRequest":true,
+                "bulkDataURI":{"enabled":true,"relativeResolution":"studies"},
+                "requestOptions":{
+                  "headers": () => {
+                    const projectRef = 'xyuxiachrjpcrmiephqa';
+                    const knownKeys = [`sb-$${projectRef}-auth-token`, 'supabase.auth.token'];
+                    for (const key of knownKeys) {
+                      const raw = localStorage.getItem(key);
+                      if (raw) {
+                        try {
+                          const session = JSON.parse(raw);
+                          const token = session?.access_token ?? session?.currentSession?.access_token;
+                          if (token && token !== 'undefined') return { "Authorization": `Bearer $${token}` };
+                        } catch (e) {}
+                      }
+                    }
+                    return {};
+                  }
+                }
+              }
+            },
+            {
+              "namespace":"@ohif/extension-default.dataSourcesModule.dicomweb",
+              "sourceName":"ohif",
+              "configuration":{
+                "friendlyName":"OHIF Public Demo Studies (AWS)",
+                "name":"aws",
+                "wadoUriRoot":"/aws-dicomweb",
+                "qidoRoot":"/aws-dicomweb",
+                "wadoRoot":"/aws-dicomweb",
+                "qidoSupportsIncludeField":false,
+                "imageRendering":"wadors",
+                "thumbnailRendering":"wadors",
+                "enableStudyLazyLoad":true,
+                "supportsFuzzyMatching":true,
+                "supportsWildcard":false,
+                "dicomUploadEnabled":false,
+                "staticWado":true,
+                "singlepart":"bulkdata,video",
+                "bulkDataURI":{"enabled":true,"relativeResolution":"studies"},
+                "omitQuotationForMultipartRequest":true
+              }
+            },
+            {
+              "namespace":"@ohif/extension-default.dataSourcesModule.dicomjson",
+              "sourceName":"dicomjson",
+              "configuration":{"friendlyName":"DICOM JSON","name":"json"}
+            },
+            {
+              "namespace":"@ohif/extension-default.dataSourcesModule.dicomlocal",
+              "sourceName":"dicomlocal",
+              "configuration":{"friendlyName":"Local DICOM Files"}
+            }
+          ]
+        }
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8080/']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

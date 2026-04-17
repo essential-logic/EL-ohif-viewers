@@ -7,6 +7,7 @@ import {
   Help as HelpIcon,
   Psychology as BrainCircuitIcon,
   GridView as LayoutGridIcon,
+  LibraryBooks as LibraryBooksIcon,
   Edit as AnnotationIcon,
   Menu as MenuIcon,
 } from '@mui/icons-material';
@@ -43,9 +44,9 @@ export function GlassToolbar({
         width: '100%',
         justifyContent: 'flex-start',
         alignItems: 'center',
-        bgcolor: 'rgba(15, 23, 42, 0.6)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+        bgcolor: 'rgba(15, 23, 42, 0.8)',
+        backdropFilter: 'blur(6px)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
         px: isMobile ? 1 : 1.5,
         py: 0.75,
         gap: isMobile ? 1 : 1.5,
@@ -226,6 +227,7 @@ export function GlassToolbar({
         }}
       >
         {[
+          { id: 'studies', label: 'Studies', icon: LibraryBooksIcon, color: '#f59e0b' },
           { id: 'viewer', label: 'Viewer', icon: LayoutGridIcon, color: '#3b82f6' },
           { id: 'segmentation', label: 'Segmentation', icon: BrainCircuitIcon, color: '#a855f7' },
           { id: 'annotation', label: 'Annotation', icon: AnnotationIcon, color: '#22c55e' },

@@ -105,36 +105,42 @@ const commandsModule = (props: withAppTypes) => {
     }) => {
       // Use the @cornerstonejs adapter for converting to/from DICOM
       // But it is good enough for now whilst we only have cornerstone as a datasource.
-      log.info('[DICOMSR] storeMeasurements');
+      console.log('[DICOM-SR] storeMeasurements - Start');
 
       if (!dataSource || !dataSource.store || !dataSource.store.dicom) {
-        log.error('[DICOMSR] datasource has no dataSource.store.dicom endpoint!');
+        log.error('[DICOM-SR] datasource has no dataSource.store.dicom endpoint!');
         return Promise.reject({});
       }
 
       try {
-        const naturalizedReport = _generateReport(measurementData, additionalFindingTypes, options);
+        const srOptions = {
+          SeriesDescription: options.SeriesDescription || 'Annotation report',
+          ...options,
+        };
+
+        console.log('[DICOM-SR] Generating report DICOM data...');
+        const naturalizedReport = _generateReport(
+          measurementData,
+          additionalFindingTypes,
+          srOptions
+        );
 
         const { StudyInstanceUID, ContentSequence } = naturalizedReport;
         // The content sequence has 5 or more elements, of which
         // the `[4]` element contains the annotation data, so this is
         // checking that there is some annotation data present.
         if (!ContentSequence?.[4].ContentSequence?.length) {
-          console.log('naturalizedReport missing imaging content', naturalizedReport);
+          console.log('[DICOM-SR] naturalizedReport missing imaging content', naturalizedReport);
           throw new Error('Invalid report, no content');
         }
         if (!naturalizedReport.SOPClassUID) {
           throw new Error('No sop class uid');
         }
 
-        const onBeforeDicomStore = customizationService.getCustomization('onBeforeDicomStore');
-
-        let dicomDict;
-        if (typeof onBeforeDicomStore === 'function') {
-          dicomDict = onBeforeDicomStore({ dicomDict, measurementData, naturalizedReport });
-        }
-
-        await dataSource.store.dicom(naturalizedReport, null, dicomDict);
+        // Bypassing onBeforeDicomStore to ensure silence (no naming dialogs)
+        console.log('[DICOM-SR] Storing DICOM to server...');
+        await dataSource.store.dicom(naturalizedReport);
+        console.log('[DICOM-SR] Store successful');
 
         if (StudyInstanceUID) {
           dataSource.deleteStudyMetadataPromise(StudyInstanceUID);
@@ -143,12 +149,13 @@ const commandsModule = (props: withAppTypes) => {
         // The "Mode" route listens for DicomMetadataStore changes
         // When a new instance is added, it listens and
         // automatically calls makeDisplaySets
+        console.log('[DICOM-SR] Adding instance to DicomMetadataStore...');
         DicomMetadataStore.addInstances([naturalizedReport], true);
 
         return naturalizedReport;
       } catch (error) {
-        console.warn(error);
-        log.error(`[DICOMSR] Error while saving the measurements: ${error.message}`);
+        console.error('[DICOM-SR] Error while saving the measurements:', error);
+        log.error(`[DICOM-SR] Error while saving the measurements: ${error.message}`);
         throw new Error(error.message || 'Error while saving the measurements.');
       }
     },

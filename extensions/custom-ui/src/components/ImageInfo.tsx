@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Person as UserIcon,
@@ -9,133 +9,163 @@ import {
 import { GlassPanel } from './GlassPanel';
 import { Box, Typography, Divider } from '@mui/material';
 
-interface ImageInfoProps {
-  servicesManager?: any;
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+const formatPN = (name: unknown): string => {
+  if (!name) {
+    return 'N/A';
+  }
+  if (typeof name === 'string') {
+    return name.replace(/\^/g, ' ');
+  }
+  if (typeof name === 'object' && name !== null && 'Alphabetic' in name) {
+    return (name as { Alphabetic: string }).Alphabetic.replace(/\^/g, ' ');
+  }
+  return 'N/A';
+};
+
+const formatDate = (date: string): string => {
+  if (!date || date.length < 8) {
+    return date || 'N/A';
+  }
+  const monthIndex = parseInt(date.substring(4, 6)) - 1;
+  if (monthIndex < 0 || monthIndex > 11) {
+    return date;
+  }
+  return `${MONTH_NAMES[monthIndex]} ${parseInt(date.substring(6, 8))}, ${date.substring(0, 4)}`;
+};
+
+interface ImageData {
+  patient: { name: string; id: string; age: string; gender: string };
+  study: { date: string; modality: string; description: string };
+  image: {
+    series: number | string;
+    totalSeries: number | string;
+    instanceNum: string | number;
+    totalInstances: number | string;
+    thickness: string;
+    pixelSpacing: string;
+  };
 }
 
-export function ImageInfo({ servicesManager }: ImageInfoProps) {
-  const [data, setData] = useState<any>(null);
+interface ImageInfoProps {
+  servicesManager?: {
+    services: {
+      viewportGridService: {
+        getState: () => {
+          activeViewportId: string;
+          viewports: Map<string, { displaySetInstanceUIDs: string[] }>;
+        };
+        subscribe: (event: string, cb: () => void) => { unsubscribe: () => void };
+        EVENTS: { ACTIVE_VIEWPORT_ID_CHANGED: string; GRID_STATE_CHANGED: string };
+      };
+      displaySetService: {
+        getDisplaySetByUID: (uid: string) => {
+          displaySetInstanceUID: string;
+          numImageFrames?: number;
+          instances?: { length: number }[];
+          instance?: Record<string, unknown>;
+        } | null;
+        getDisplaySetsForSeries: (uid: string) => { displaySetInstanceUID: string }[] | null;
+      };
+      cornerstoneViewportService: {
+        getViewportInfo: (id: string) => { getElement: () => HTMLElement | null } | null;
+      };
+    };
+  };
+  studyInstanceUIDs?: string | string[];
+}
+
+export function ImageInfo({ servicesManager, studyInstanceUIDs }: ImageInfoProps) {
+  const [data, setData] = useState<ImageData | null>(null);
+
+  const updateData = useCallback(() => {
+    if (!servicesManager) {
+      return;
+    }
+
+    const { viewportGridService, displaySetService } = servicesManager.services;
+    const { activeViewportId, viewports } = viewportGridService.getState();
+
+    const viewportIdToUse = activeViewportId || viewports.keys().next().value;
+    const activeViewport = viewports.get(viewportIdToUse);
+
+    if (!activeViewport?.displaySetInstanceUIDs?.length) {
+      return;
+    }
+
+    const displaySetInstanceUID = activeViewport.displaySetInstanceUIDs[0];
+    const displaySet = displaySetService.getDisplaySetByUID(displaySetInstanceUID);
+    if (!displaySet) {
+      return;
+    }
+
+    const instance = (displaySet.instance || displaySet.instances?.[0]) as
+      | Record<string, unknown>
+      | undefined;
+    if (!instance) {
+      return;
+    }
+
+    const allDisplaySets = displaySetService.getDisplaySetsForSeries(
+      instance.StudyInstanceUID as string
+    );
+    const totalSeries = allDisplaySets?.length ?? 'N/A';
+    const seriesIndex = allDisplaySets
+      ? allDisplaySets.findIndex(ds => ds.displaySetInstanceUID === displaySetInstanceUID) + 1
+      : 'N/A';
+    const totalInstances = displaySet.numImageFrames || (displaySet.instances?.length ?? 1);
+
+    const pixelSpacing = instance.PixelSpacing as number[] | undefined;
+
+    setData({
+      patient: {
+        name: formatPN(instance.PatientName),
+        id: (instance.PatientID as string) || 'N/A',
+        age: (instance.PatientAge as string) || 'N/A',
+        gender: (instance.PatientSex as string) || 'N/A',
+      },
+      study: {
+        date: formatDate(instance.StudyDate as string),
+        modality: (instance.Modality as string) || 'N/A',
+        description: (instance.StudyDescription as string) || 'No Description',
+      },
+      image: {
+        series: seriesIndex,
+        totalSeries,
+        instanceNum: (instance.InstanceNumber as string) || '1',
+        totalInstances,
+        thickness: instance.SliceThickness ? `${instance.SliceThickness} mm` : 'N/A',
+        pixelSpacing:
+          pixelSpacing && Array.isArray(pixelSpacing) && pixelSpacing.length >= 2
+            ? `${pixelSpacing[0].toFixed(2)} / ${pixelSpacing[1].toFixed(2)} mm`
+            : 'N/A',
+      },
+    });
+  }, [servicesManager]);
 
   useEffect(() => {
     if (!servicesManager) {
       return;
     }
 
-    const { viewportGridService, displaySetService } = servicesManager.services;
-
-    const updateData = () => {
-      const { activeViewportId, viewports } = viewportGridService.getState();
-
-      // Fallback to first viewport if no active one is set yet (common on initial load)
-      let viewportIdToUse = activeViewportId;
-      if (!viewportIdToUse && viewports.size > 0) {
-        viewportIdToUse = viewports.keys().next().value;
-      }
-
-      const activeViewport = viewports.get(viewportIdToUse);
-
-      if (
-        !activeViewport ||
-        !activeViewport.displaySetInstanceUIDs ||
-        activeViewport.displaySetInstanceUIDs.length === 0
-      ) {
-        return;
-      }
-
-      const displaySetInstanceUID = activeViewport.displaySetInstanceUIDs[0];
-      const displaySet = displaySetService.getDisplaySetByUID(displaySetInstanceUID);
-
-      if (!displaySet) {
-        return;
-      }
-
-      // ... rest of formatting ...
-      const formatPN = (name: any) => {
-        if (!name) {
-          return 'N/A';
-        }
-        if (typeof name === 'string') {
-          return name.replace(/\^/g, ' ');
-        }
-        if (name.Alphabetic) {
-          return name.Alphabetic.replace(/\^/g, ' ');
-        }
-        return 'N/A';
-      };
-
-      const formatDate = (date: string) => {
-        if (!date) {
-          return 'N/A';
-        }
-        const y = date.substring(0, 4);
-        const m = date.substring(4, 6);
-        const d = date.substring(6, 8);
-        const monthNames = [
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec',
-        ];
-        const monthIndex = parseInt(m) - 1;
-        if (monthIndex < 0 || monthIndex > 11) {
-          return date;
-        }
-        return `${monthNames[monthIndex]} ${parseInt(d)}, ${y}`;
-      };
-
-      const instance = displaySet.instance || (displaySet.instances && displaySet.instances[0]);
-
-      if (!instance) {
-        return;
-      }
-
-      const allDisplaySets = displaySetService.getDisplaySetsForSeries(instance.StudyInstanceUID);
-      const totalSeries = allDisplaySets ? allDisplaySets.length : 'N/A';
-      const seriesIndex = allDisplaySets
-        ? allDisplaySets.findIndex(ds => ds.displaySetInstanceUID === displaySetInstanceUID) + 1
-        : 'N/A';
-      const totalInstances =
-        displaySet.numImageFrames || (displaySet.instances ? displaySet.instances.length : 1);
-      const instanceIndex = instance.InstanceNumber || '1';
-
-      setData({
-        patient: {
-          name: formatPN(instance.PatientName),
-          id: instance.PatientID || 'N/A',
-          age: instance.PatientAge || 'N/A',
-          gender: instance.PatientSex || 'N/A',
-        },
-        study: {
-          date: formatDate(instance.StudyDate),
-          modality: instance.Modality || 'N/A',
-          description: instance.StudyDescription || 'No Description',
-        },
-        image: {
-          series: seriesIndex,
-          totalSeries: totalSeries,
-          instanceNum: instanceIndex,
-          totalInstances: totalInstances,
-          thickness: instance.SliceThickness ? `${instance.SliceThickness} mm` : 'N/A',
-          pixelSpacing:
-            instance.PixelSpacing && Array.isArray(instance.PixelSpacing)
-              ? `${instance.PixelSpacing[0].toFixed(2)} / ${instance.PixelSpacing[1].toFixed(2)} mm`
-              : 'N/A',
-        },
-      });
-    };
-
-    // Initial load
     updateData();
 
-    // Subscribe to viewport changes and grid state
+    const { viewportGridService, cornerstoneViewportService } = servicesManager.services;
+
     const subs = [
       viewportGridService.subscribe(
         viewportGridService.EVENTS.ACTIVE_VIEWPORT_ID_CHANGED,
@@ -144,33 +174,24 @@ export function ImageInfo({ servicesManager }: ImageInfoProps) {
       viewportGridService.subscribe(viewportGridService.EVENTS.GRID_STATE_CHANGED, updateData),
     ];
 
-    // Listen to cornerstone image changes
-    let currentElement: any = null;
-    const { cornerstoneViewportService } = servicesManager.services;
-
-    const onNewImage = () => updateData();
+    let currentElement: HTMLElement | null = null;
 
     const setupElementListener = () => {
       const { activeViewportId, viewports } = viewportGridService.getState();
-      let idToUse = activeViewportId;
-      if (!idToUse && viewports.size > 0) {
-        idToUse = viewports.keys().next().value;
-      }
-
+      const idToUse = activeViewportId || viewports.keys().next().value;
       const viewportInfo = cornerstoneViewportService.getViewportInfo(idToUse);
-      const element = viewportInfo?.getElement();
+      const element = viewportInfo?.getElement() ?? null;
 
       if (currentElement && currentElement !== element) {
-        currentElement.removeEventListener('cornerstone_stack_new_image', onNewImage);
-        currentElement.removeEventListener('cornerstone_volume_new_image', onNewImage);
-        currentElement.removeEventListener('cornerstone_image_rendered', onNewImage);
+        currentElement.removeEventListener('cornerstone_stack_new_image', updateData);
+        currentElement.removeEventListener('cornerstone_volume_new_image', updateData);
+        currentElement.removeEventListener('cornerstone_image_rendered', updateData);
       }
-
       if (element && currentElement !== element) {
         currentElement = element;
-        element.addEventListener('cornerstone_stack_new_image', onNewImage);
-        element.addEventListener('cornerstone_volume_new_image', onNewImage);
-        element.addEventListener('cornerstone_image_rendered', onNewImage);
+        element.addEventListener('cornerstone_stack_new_image', updateData);
+        element.addEventListener('cornerstone_volume_new_image', updateData);
+        element.addEventListener('cornerstone_image_rendered', updateData);
       }
     };
 
@@ -184,8 +205,6 @@ export function ImageInfo({ servicesManager }: ImageInfoProps) {
     );
 
     setupElementListener();
-
-    // Fallback timer if initial state is delayed
     const timer = setTimeout(updateData, 500);
 
     return () => {
@@ -194,12 +213,12 @@ export function ImageInfo({ servicesManager }: ImageInfoProps) {
       unsubGrid2.unsubscribe();
       clearTimeout(timer);
       if (currentElement) {
-        currentElement.removeEventListener('cornerstone_stack_new_image', onNewImage);
-        currentElement.removeEventListener('cornerstone_volume_new_image', onNewImage);
-        currentElement.removeEventListener('cornerstone_image_rendered', onNewImage);
+        currentElement.removeEventListener('cornerstone_stack_new_image', updateData);
+        currentElement.removeEventListener('cornerstone_volume_new_image', updateData);
+        currentElement.removeEventListener('cornerstone_image_rendered', updateData);
       }
     };
-  }, [servicesManager]);
+  }, [servicesManager, updateData]);
 
   if (!data) {
     return (
@@ -279,13 +298,7 @@ export function ImageInfo({ servicesManager }: ImageInfoProps) {
                 </Typography>
               </Box>
 
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr 1fr',
-                  gap: 1,
-                }}
-              >
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1 }}>
                 {[
                   { label: 'ID', value: data.patient.id, color: 'primary.main' },
                   { label: 'AGE', value: data.patient.age, color: 'text.primary' },
@@ -358,7 +371,6 @@ export function ImageInfo({ servicesManager }: ImageInfoProps) {
                   {data.study.date}
                 </Typography>
               </Box>
-
               <Box
                 sx={{
                   display: 'flex',
@@ -378,14 +390,13 @@ export function ImageInfo({ servicesManager }: ImageInfoProps) {
                   {data.study.modality}
                 </Typography>
               </Box>
-
               <Box
                 sx={{
                   p: 1.25,
                   borderRadius: 1.5,
+                  mt: 0.5,
                   bgcolor: 'rgba(139, 92, 246, 0.05)',
                   border: '1px solid rgba(139, 92, 246, 0.1)',
-                  mt: 0.5,
                 }}
               >
                 <Typography
@@ -405,7 +416,7 @@ export function ImageInfo({ servicesManager }: ImageInfoProps) {
           </Box>
 
           {/* Image Info */}
-          <Box sx={{ mb: 2.5 }}>
+          <Box sx={{ mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <ActivityIcon sx={{ fontSize: 14, color: 'primary.main' }} />
               <Typography
@@ -455,34 +466,6 @@ export function ImageInfo({ servicesManager }: ImageInfoProps) {
                 </Box>
               ))}
             </Box>
-          </Box>
-
-          {/* AI Analysis Status */}
-          <Box
-            sx={{
-              p: 1,
-              borderRadius: 2,
-              bgcolor: 'rgba(16, 185, 129, 0.05)',
-              border: '1px solid rgba(16, 185, 129, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 1,
-            }}
-          >
-            <Box
-              component={motion.div}
-              animate={{ opacity: [1, 0.4, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#10b981' }}
-            />
-            <Typography
-              variant="caption"
-              fontWeight={800}
-              sx={{ fontSize: '0.65rem', color: '#10b981', letterSpacing: 1 }}
-            >
-              AI ANALYSIS ACTIVE
-            </Typography>
           </Box>
         </motion.div>
       </AnimatePresence>

@@ -75,10 +75,14 @@ export default function ModeRoute({
     updateAuthServiceAndCleanUrl(token, location, userAuthenticationService);
   }
 
-  // An undefined dataSourceName implies that the active data source that is already set in the ExtensionManager should be used.
-  if (dataSourceName !== undefined) {
-    extensionManager.setActiveDataSource(dataSourceName);
-  }
+  useEffect(() => {
+    if (dataSourceName) {
+      const activeDS = extensionManager.getActiveDataSourceOrNull();
+      if (activeDS?.name !== dataSourceName) {
+        extensionManager.setActiveDataSource(dataSourceName);
+      }
+    }
+  }, [dataSourceName, extensionManager]);
 
   const dataSource = extensionManager.getActiveDataSourceOrNull();
 

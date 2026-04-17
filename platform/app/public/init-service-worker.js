@@ -40,15 +40,18 @@ if ('function' === typeof importScripts) {
       // Assuming the user accepted the update, set up a listener
       // that will reload the page as soon as the previously waiting
       // service worker has taken control.
-      wb.addEventListener('controlling', event => {
-        window.location.reload();
-      });
+      // wb.addEventListener('controlling', event => {
+      //   window.location.reload();
+      // });
 
       // Send a message telling the service worker to skip waiting.
       // This will trigger the `controlling` event handler above.
       // Note: for this to work, you have to add a message
       // listener in your service worker. See below.
-      wb.messageSW({ type: 'SKIP_WAITING' });
+      
+      // DISABLED: This was causing the website to autoreload unexpectedly.
+      // The update will now be applied on the next natural page reload.
+      // wb.messageSW({ type: 'SKIP_WAITING' });
       // },
 
       // onReject: () => {

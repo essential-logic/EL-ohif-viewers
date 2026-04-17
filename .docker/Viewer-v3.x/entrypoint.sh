@@ -1,10 +1,13 @@
 #!/bin/sh
 
+export ORTHANC_HOST="${ORTHANC_HOST:-https://xyuxiachrjpcrmiephqa.supabase.co/functions/v1/orthanc-proxy}"
+export ORTHANC_ROOT_HOST="${ORTHANC_ROOT_HOST:-76.13.99.8}"
+
 if [ -n "$SSL_PORT" ]
   then
-    envsubst '${SSL_PORT}:${PORT}' < /usr/src/default.ssl.conf.template | envsubst '${PUBLIC_URL}' > /etc/nginx/conf.d/default.conf
+    envsubst '${SSL_PORT}:${PORT}:${ORTHANC_HOST}:${ORTHANC_ROOT_HOST}' < /usr/src/default.ssl.conf.template | envsubst '${PUBLIC_URL}' > /etc/nginx/conf.d/default.conf
   else
-    envsubst '${PORT}:${PUBLIC_URL}' < /usr/src/default.conf.template  > /etc/nginx/conf.d/default.conf
+    envsubst '${PORT}:${PUBLIC_URL}:${ORTHANC_HOST}:${ORTHANC_ROOT_HOST}' < /usr/src/default.conf.template  > /etc/nginx/conf.d/default.conf
 fi
 
 if [ -n "$APP_CONFIG" ]; then

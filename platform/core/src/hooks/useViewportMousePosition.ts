@@ -59,13 +59,20 @@ function useViewportMousePosition(viewportId: string): MousePosition {
         );
       };
 
-      setMousePosition({
-        x,
-        y,
-        isInViewport,
-        relativeX,
-        relativeY,
-        isWithinNormalizedBox,
+      setMousePosition(prev => {
+        // Prevent infinite loops from synthetic events by bailing if nothing changed
+        if (prev.x === x && prev.y === y && prev.isInViewport === isInViewport) {
+          return prev;
+        }
+
+        return {
+          x,
+          y,
+          isInViewport,
+          relativeX,
+          relativeY,
+          isWithinNormalizedBox,
+        };
       });
     };
 

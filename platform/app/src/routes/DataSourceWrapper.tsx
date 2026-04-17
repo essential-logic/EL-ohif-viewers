@@ -1,10 +1,9 @@
 /* eslint-disable react/jsx-props-no-spreading */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { Enums, ExtensionManager, MODULE_TYPES, log } from '@ohif/core';
-//
-import { extensionManager } from '../App';
+import { Enums, MODULE_TYPES, log } from '@ohif/core';
 import { useParams, useLocation } from 'react-router';
+import { extensionManager } from '../App';
 import useSearchParams from '../hooks/useSearchParams';
 import { ErrorDisplay } from '@ohif/ui-next';
 import { withAppTypes } from './types';
@@ -51,103 +50,61 @@ function DataSourceWrapper(props: withAppTypes<DataSourceWrapperProps>) {
     location: 'Not a valid location, causes first load to occur',
   };
 
-  const getInitialDataSourceName = useCallback(() => {
-    // TODO - get the variable from the props all the time...
-    let dataSourceName = lowerCaseSearchParams.get('datasources');
+  // ─── Hard Severance: The component remounts on every switch ─────────────────
+  // Because index.tsx uses a 'key' based on the datasource, 
+  // we start 100% fresh every time the server changes.
 
-    if (!dataSourceName && window.config.defaultDataSourceName) {
-      return '';
-    }
-
-    if (!dataSourceName) {
-      // Gets the first defined datasource with the right name
-      // Mostly for historical reasons - new configs should use the defaultDataSourceName
-      const dataSourceModules = extensionManager.getModulesByType(MODULE_TYPES.DATA_SOURCE);
-      // TODO: Good usecase for flatmap?
-      const webApiDataSources = dataSourceModules.reduce((acc, curr) => {
-        const mods = [];
-        curr.module.forEach(mod => {
-          if (mod.type === 'webApi') {
-            mods.push(mod);
-          }
-        });
-        return acc.concat(mods);
-      }, []);
-      dataSourceName = webApiDataSources
-        .map(ds => ds.name)
-        .find(it => extensionManager.getDataSources(it)?.[0] !== undefined);
-    }
-
-    return dataSourceName;
-  }, []);
-
-  const [isDataSourceInitialized, setIsDataSourceInitialized] = useState(false);
-
-  // The path to the data source to be used in the URL for a mode (e.g. mode/dataSourcePath?StudyInstanceUIDs=1.2.3)
-  const [dataSourcePath, setDataSourcePath] = useState(() => {
-    const dataSourceName = getInitialDataSourceName();
-    return dataSourceName ? `/${dataSourceName}` : '';
-  });
-
-  const [dataSource, setDataSource] = useState(() => {
-    const dataSourceName = getInitialDataSourceName();
-
-    if (!dataSourceName) {
-      return extensionManager.getActiveDataSource()[0];
-    }
-
-    const dataSource = extensionManager.getDataSources(dataSourceName)?.[0];
-    if (!dataSource) {
-      throw new Error(`No data source found for ${dataSourceName}`);
-    }
-
-    return dataSource;
-  });
+  const dsNameFromUrl = useSearchParams({ lowerCaseKeys: true }).get('datasources') || window.config.defaultDataSourceName || 'ohif';
+  const dataSource = useMemo(() => {
+    return extensionManager.getDataSources(dsNameFromUrl)?.[0] || 
+           extensionManager.getModulesByType(MODULE_TYPES.DATA_SOURCE)[0]?.module[0];
+  }, [dsNameFromUrl]);
 
   const [data, setData] = useState(DEFAULT_DATA);
   const [isLoading, setIsLoading] = useState(false);
-
   const [error, setError] = useState(null);
+  const [isDataSourceInitialized, setIsDataSourceInitialized] = useState(false);
+  const [refreshCount, setRefreshCount] = useState(0);
+  const lastFetchedLocation = React.useRef(null);
+  const lastRefreshCount = React.useRef(0);
 
-  /**
-   * The effect to initialize the data source whenever it changes. Similar to
-   * whenever a different Mode is entered, the Mode's data source is initialized, so
-   * too this DataSourceWrapper must initialize its data source whenever a different
-   * data source is activated. Furthermore, a data source might be initialized
-   * several times as it gets activated/deactivated because the location URL
-   * might change and data sources initialize based on the URL.
-   */
+  // Path for URL building
+  const dataSourcePath = dsNameFromUrl ? `/${dsNameFromUrl}` : '';
+
+  // Total Severance: Wipe persistent memory on mount
   useEffect(() => {
-    const initializeDataSource = async () => {
+    localStorage.removeItem('activeDataSource');
+    sessionStorage.removeItem('activeDataSource');
+    console.log(`[DataSourceWrapper] Fresh Mount for: ${dsNameFromUrl}. Isolation Active.`);
+  }, [dsNameFromUrl]);
+
+  // Initialization Effect
+  useEffect(() => {
+    let active = true;
+    const init = async () => {
       try {
         await dataSource.initialize({ params, query });
-        setIsDataSourceInitialized(true);
-        setError(null);
+        if (active) {
+          setIsDataSourceInitialized(true);
+        }
       } catch (err) {
-        setError(err);
+        if (active) {
+          setError(err);
+        }
       }
     };
-
-    initializeDataSource();
-  }, [dataSource]);
-
-  useEffect(() => {
-    const dataSourceChangedCallback = () => {
-      setIsLoading(false);
-      setIsDataSourceInitialized(false);
-      setDataSourcePath('');
-      setDataSource(extensionManager.getActiveDataSource()[0]);
-      // Setting data to DEFAULT_DATA triggers a new query just like it does for the initial load.
-      setData(DEFAULT_DATA);
-      setError(null);
+    init();
+    return () => {
+      active = false;
     };
+  }, [dataSource, params, query]);
 
-    const sub = extensionManager.subscribe(
-      ExtensionManager.EVENTS.ACTIVE_DATA_SOURCE_CHANGED,
-      dataSourceChangedCallback
-    );
-    return () => sub.unsubscribe();
-  }, []);
+  // Sync Global Active (for viewer/extensions)
+  useEffect(() => {
+    if (dsNameFromUrl && extensionManager.getActiveDataSourceOrNull()?.name !== dsNameFromUrl) {
+      extensionManager.setActiveDataSource(dsNameFromUrl);
+    }
+  }, [dsNameFromUrl]);
 
   useEffect(() => {
     if (!isDataSourceInitialized) {
@@ -157,22 +114,62 @@ function DataSourceWrapper(props: withAppTypes<DataSourceWrapperProps>) {
     const queryFilterValues = _getQueryFilterValues(location.search, STUDIES_LIMIT);
 
     // 204: no content
+    const currentPath = location.pathname + location.search + location.hash;
+
+    // 204: no content
     async function getData() {
       setIsLoading(true);
       setError(null);
-      try {
-        log.time(Enums.TimingEnum.SEARCH_TO_LIST);
-        const studies = await dataSource.query.studies.search(queryFilterValues);
+      lastFetchedLocation.current = currentPath;
 
-        setData({
-          studies: studies || [],
-          total: studies.length,
-          resultsPerPage: queryFilterValues.resultsPerPage,
-          pageNumber: queryFilterValues.pageNumber,
-          location: location.pathname + location.search + location.hash,
-        });
-        log.timeEnd(Enums.TimingEnum.SCRIPT_TO_VIEW);
-        log.timeEnd(Enums.TimingEnum.SEARCH_TO_LIST);
+      // Attempt fetch, auto-refresh token on 401 and retry once
+      const attemptFetch = async (isRetry = false): Promise<void> => {
+        try {
+          if (!(window as any).searchTimerStarted) {
+            log.time(Enums.TimingEnum.SEARCH_TO_LIST);
+            (window as any).searchTimerStarted = true;
+          }
+          const studies = await dataSource.query.studies.search(queryFilterValues);
+          setData({
+            studies: studies || [],
+            total: studies.length,
+            resultsPerPage: queryFilterValues.resultsPerPage,
+            pageNumber: queryFilterValues.pageNumber,
+            location: currentPath,
+          });
+          log.timeEnd(Enums.TimingEnum.SCRIPT_TO_VIEW);
+          if ((window as any).searchTimerStarted) {
+            log.timeEnd(Enums.TimingEnum.SEARCH_TO_LIST);
+            (window as any).searchTimerStarted = false;
+          }
+        } catch (err: unknown) {
+          const errMsg = (err as Error)?.message || '';
+          const is401 =
+            (err as { status?: number })?.status === 401 ||
+            errMsg.includes('401') ||
+            errMsg.includes('Unauthorized') ||
+            errMsg.includes('authorization') ||
+            errMsg.includes('request failed');
+
+          if (is401 && !isRetry) {
+            console.warn('[DataSourceWrapper] 401 on study search — refreshing token and retrying…');
+            // AuthContext registers window.__refreshSupabaseToken to decouple this module
+            const refreshFn = (window as unknown as { __refreshSupabaseToken?: () => Promise<string | null> }).__refreshSupabaseToken;
+            if (refreshFn) {
+              const newToken = await refreshFn().catch(() => null);
+              if (newToken) {
+                console.log('[DataSourceWrapper] Token refreshed — retrying study search.');
+              }
+            }
+            return attemptFetch(true);
+          }
+
+          throw err;
+        }
+      };
+
+      try {
+        await attemptFetch();
       } catch (err) {
         setError(err);
         console.error(err);
@@ -181,27 +178,17 @@ function DataSourceWrapper(props: withAppTypes<DataSourceWrapperProps>) {
       }
     }
 
+
     try {
-      // Cache invalidation :thinking:
-      // - Anytime change is not just next/previous page
-      // - And we didn't cross a result offset range
       const isSamePage = data.pageNumber === queryFilterValues.pageNumber;
-      const previousOffset =
-        Math.floor((data.pageNumber * data.resultsPerPage) / STUDIES_LIMIT) * (STUDIES_LIMIT - 1);
-      const newOffset =
-        Math.floor(
-          (queryFilterValues.pageNumber * queryFilterValues.resultsPerPage) / STUDIES_LIMIT
-        ) *
-        (STUDIES_LIMIT - 1);
-      // Simply checking data.location !== location is not sufficient because even though the location href (i.e. entire URL)
-      // has not changed, the React Router still provides a new location reference and would result in two study queries
-      // on initial load. Alternatively, window.location.href could be used.
-      const isLocationUpdated =
-        data.location !== location.pathname + location.search + location.hash;
+      const isLocationUpdated = lastFetchedLocation.current !== currentPath;
+      const isRefreshTriggered = lastRefreshCount.current !== refreshCount;
+      
       const isDataInvalid =
-        !isSamePage || (!isLoading && (newOffset !== previousOffset || isLocationUpdated));
+        isRefreshTriggered || !isSamePage || (!isLoading && !error && isLocationUpdated);
 
       if (isDataInvalid) {
+        lastRefreshCount.current = refreshCount;
         getData();
       }
     } catch (ex) {
@@ -209,7 +196,7 @@ function DataSourceWrapper(props: withAppTypes<DataSourceWrapperProps>) {
       setError(ex);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, location, params, isLoading, setIsLoading, dataSource, isDataSourceInitialized]);
+  }, [location, params, isLoading, dataSource, isDataSourceInitialized, refreshCount]);
   // queryFilterValues
 
   if (error) {
@@ -218,7 +205,7 @@ function DataSourceWrapper(props: withAppTypes<DataSourceWrapperProps>) {
         error={error}
         onRetry={() => {
           setError(null);
-          setData(DEFAULT_DATA); // Trigger reload
+          setRefreshCount(c => c + 1);
         }}
         title="Data Source Error"
       />
@@ -234,8 +221,11 @@ function DataSourceWrapper(props: withAppTypes<DataSourceWrapperProps>) {
       dataTotal={data.total}
       dataSource={dataSource}
       isLoadingData={isLoading}
-      // To refresh the data, simply reset it to DEFAULT_DATA which invalidates it and triggers a new query to fetch the data.
-      onRefresh={() => setData(DEFAULT_DATA)}
+      // Incrementing refreshCount forces the useEffect above to refetch
+      onRefresh={() => {
+        setData(DEFAULT_DATA);
+        setRefreshCount(c => c + 1);
+      }}
     />
   );
 }

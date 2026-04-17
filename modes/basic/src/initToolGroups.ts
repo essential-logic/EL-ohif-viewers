@@ -81,6 +81,27 @@ function initDefaultToolGroup(extensionManager, toolGroupService, commandsManage
       { toolName: toolNames.SplineROI },
       { toolName: toolNames.LivewireContour },
       { toolName: toolNames.WindowLevelRegion },
+      {
+        toolName: 'CircularBrush',
+        parentTool: toolNames.Brush,
+        configuration: {
+          activeStrategy: 'FILL_INSIDE_CIRCLE',
+        },
+      },
+      {
+        toolName: 'CircularEraser',
+        parentTool: toolNames.Brush,
+        configuration: {
+          activeStrategy: 'ERASE_INSIDE_CIRCLE',
+        },
+      },
+      { toolName: toolNames.PaintFill },
+      { toolName: toolNames.SculptorTool },
+      { toolName: toolNames.CircleScissors },
+      { toolName: toolNames.RectangleScissors },
+      { toolName: toolNames.SphereScissors },
+      { toolName: toolNames.MarkerLabelmap },
+      { toolName: toolNames.LabelmapSlicePropagation },
     ],
     enabled: [
       { toolName: toolNames.ImageOverlayViewer },
@@ -229,6 +250,27 @@ function initMPRToolGroup(extensionManager, toolGroupService, commandsManager) {
       { toolName: toolNames.SplineROI },
       { toolName: toolNames.LivewireContour },
       { toolName: toolNames.WindowLevelRegion },
+      {
+        toolName: 'CircularBrush',
+        parentTool: toolNames.Brush,
+        configuration: {
+          activeStrategy: 'FILL_INSIDE_CIRCLE',
+        },
+      },
+      {
+        toolName: 'CircularEraser',
+        parentTool: toolNames.Brush,
+        configuration: {
+          activeStrategy: 'ERASE_INSIDE_CIRCLE',
+        },
+      },
+      { toolName: toolNames.PaintFill },
+      { toolName: toolNames.SculptorTool },
+      { toolName: toolNames.CircleScissors },
+      { toolName: toolNames.RectangleScissors },
+      { toolName: toolNames.SphereScissors },
+      { toolName: toolNames.MarkerLabelmap },
+      { toolName: toolNames.LabelmapSlicePropagation },
       {
         toolName: toolNames.PlanarFreehandContourSegmentation,
         configuration: {

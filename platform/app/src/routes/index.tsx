@@ -12,9 +12,24 @@ import buildModeRoutes from './buildModeRoutes';
 import PrivateRoute from './PrivateRoute';
 import PropTypes from 'prop-types';
 import { routerBasename } from '../utils/publicUrl';
+import { AuthGate } from '@ohif/extension-custom-ui';
 import { useAppConfig } from '@state';
 import { history } from '../utils/history';
 import { withAppTypes } from './types';
+import useSearchParams from '../hooks/useSearchParams';
+
+const WorkListWithKey = (props) => {
+  const query = useSearchParams();
+  const [appConfig] = useAppConfig();
+  const dsKey = query.get('datasources') || appConfig?.defaultDataSourceName || 'default';
+  
+  return (
+    <AuthGate key={dsKey}>
+      <DataSourceWrapper {...props} />
+    </AuthGate>
+  );
+};
+
 
 const NotFoundServer = ({
   message = 'Unable to query for studies at this time. Check your data source configuration or network connection',
@@ -91,6 +106,7 @@ const notFoundRoute = { path: '*', children: NotFound };
 const createRoutes = ({
   modes,
   dataSources,
+  appConfig,
   extensionManager,
   servicesManager,
   commandsManager,
@@ -126,8 +142,22 @@ const createRoutes = ({
   const customRoutes = customizationService.getCustomization('routes.customRoutes');
 
   const allRoutes = [
-    ...routes,
-    ...(showStudyList ? [WorkListRoute] : []),
+    ...routes.map(r => ({
+      ...r,
+      children: props => (
+        <AuthGate>
+          <r.children {...props} />
+        </AuthGate>
+      ),
+    })),
+    ...(showStudyList
+      ? [
+          {
+            ...WorkListRoute,
+            children: WorkListWithKey,
+          },
+        ]
+      : []),
     ...(customRoutes?.routes || []),
     ...bakedInRoutes,
     customRoutes?.notFoundRoute || notFoundRoute,

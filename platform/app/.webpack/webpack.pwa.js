@@ -159,7 +159,13 @@ module.exports = (env, argv) => {
       },
       proxy: [
         {
-          '/dicomweb': 'http://localhost:5000',
+          context: ['/dicom-web', '/wado'],
+          target: 'http://76.13.99.8:8042',
+          changeOrigin: true,
+        },
+        {
+          context: ['/dicomweb'],
+          target: 'http://localhost:5000',
         },
       ],
       static: [
@@ -208,6 +214,11 @@ module.exports = (env, argv) => {
   if (hasProxy) {
     mergedConfig.devServer.proxy = mergedConfig.devServer.proxy || {};
     mergedConfig.devServer.proxy = [
+      {
+        context: ['/dicom-web', '/wado'],
+        target: 'http://76.13.99.8:8042',
+        changeOrigin: true,
+      },
       {
         context: [PROXY_PATH_REWRITE_FROM || '/dicomweb'],
         target: PROXY_DOMAIN,

@@ -8,7 +8,7 @@ import {
   processResults,
   processSeriesResults,
 } from './qido.js';
-import dcm4cheeReject from './dcm4cheeReject.js';
+// No dcm4cheeReject needed for read-only gateway
 
 import getImageId from './utils/getImageId.js';
 import dcmjs from 'dcmjs';
@@ -16,7 +16,7 @@ import { retrieveStudyMetadata, deleteStudyMetadataPromise } from './retrieveStu
 import StaticWadoClient from './utils/StaticWadoClient';
 import getDirectURL from '../utils/getDirectURL';
 import { fixBulkDataURI } from './utils/fixBulkDataURI';
-import {HeadersInterface} from '@ohif/core/src/types/RequestHeaders';
+import { HeadersInterface } from '@ohif/core/src/types/RequestHeaders';
 
 const { DicomMetaDictionary, DicomDict } = dcmjs.data;
 
@@ -72,6 +72,8 @@ export type DicomWebConfig = {
   onConfiguration: (config: DicomWebConfig, params) => DicomWebConfig;
   /** Whether to use the static WADO client */
   staticWado?: boolean;
+  /** Whether to skip authorization headers */
+  skipAuth?: boolean;
   /** User authentication service */
   userAuthenticationService: Record<string, unknown>;
 };
@@ -132,6 +134,7 @@ function createDicomWebApi(dicomWebConfig: DicomWebConfig, servicesManager) {
   dicomWebConfig.bulkDataURI ||= { enabled: true };
 
   const implementation = {
+    reject: () => Promise.reject('Reject not supported'),
     initialize: ({ params, query }) => {
       if (dicomWebConfig.onConfiguration && typeof dicomWebConfig.onConfiguration === 'function') {
         dicomWebConfig = dicomWebConfig.onConfiguration(dicomWebConfig, {
@@ -144,10 +147,45 @@ function createDicomWebApi(dicomWebConfig: DicomWebConfig, servicesManager) {
 
       getAuthorizationHeader = () => {
         const xhrRequestHeaders: HeadersInterface = {};
-        const authHeaders = userAuthenticationService.getAuthorizationHeader();
-        if (authHeaders && authHeaders.Authorization) {
-          xhrRequestHeaders.Authorization = authHeaders.Authorization;
+
+        if (dicomWebConfig.skipAuth) {
+          return xhrRequestHeaders;
         }
+
+        // 0. Use configured requestOptions or onBeforeSendHeaders from app-config.js if defined
+        const customConfig = (dicomWebConfig as any);
+        if (customConfig.requestOptions && typeof customConfig.requestOptions.headers === 'function') {
+           const customHeaders = customConfig.requestOptions.headers();
+           if (customHeaders && customHeaders.Authorization) {
+             return customHeaders;
+           }
+        } else if (typeof customConfig.onBeforeSendHeaders === 'function') {
+           const customHeaders = customConfig.onBeforeSendHeaders();
+           if (customHeaders && customHeaders.Authorization) {
+             return customHeaders;
+           }
+        }
+
+        // 1. Try standard OHIF userAuthenticationService
+        const authHeaders = userAuthenticationService.getAuthorizationHeader();
+        if (authHeaders && authHeaders.Authorization && !authHeaders.Authorization.includes('undefined')) {
+          return { 
+            ...authHeaders,
+            apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw'
+          };
+        }
+
+        // 2. Direct fallback to window cache (EL-specific fix for 401 timing issues)
+        const token = (window as any).__supabaseToken;
+        if (token && token !== 'undefined' && token !== 'null') {
+          console.log('[EL-Auth] Using window fallback token');
+          return { 
+            Authorization: `Bearer ${token}`,
+            apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw'
+          };
+        }
+        
+        console.warn('[EL-Auth] No token found in service or window!');
         return xhrRequestHeaders;
       };
 
@@ -158,7 +196,7 @@ function createDicomWebApi(dicomWebConfig: DicomWebConfig, servicesManager) {
        */
       generateWadoHeader = (options: HeaderOptions): HeadersInterface => {
         const authorizationHeader = getAuthorizationHeader();
-        if (options?.includeTransferSyntax!==false) {
+        if (options?.includeTransferSyntax !== false) {
           //Generate accept header depending on config params
           const formattedAcceptHeader = utils.generateAcceptHeader(
             dicomWebConfig.acceptHeader,
@@ -184,7 +222,7 @@ function createDicomWebApi(dicomWebConfig: DicomWebConfig, servicesManager) {
         url: dicomWebConfig.qidoRoot,
         staticWado: dicomWebConfig.staticWado,
         singlepart: dicomWebConfig.singlepart,
-        headers: userAuthenticationService.getAuthorizationHeader(),
+        headers: getAuthorizationHeader(),
         errorInterceptor: errorHandler.getHTTPErrorHandler(),
         supportsFuzzyMatching: dicomWebConfig.supportsFuzzyMatching,
       };
@@ -193,7 +231,7 @@ function createDicomWebApi(dicomWebConfig: DicomWebConfig, servicesManager) {
         url: dicomWebConfig.wadoRoot,
         staticWado: dicomWebConfig.staticWado,
         singlepart: dicomWebConfig.singlepart,
-        headers: userAuthenticationService.getAuthorizationHeader(),
+        headers: getAuthorizationHeader(),
         errorInterceptor: errorHandler.getHTTPErrorHandler(),
         supportsFuzzyMatching: dicomWebConfig.supportsFuzzyMatching,
       };
@@ -210,20 +248,20 @@ function createDicomWebApi(dicomWebConfig: DicomWebConfig, servicesManager) {
     },
     query: {
       studies: {
-        mapParams: mapParams.bind(),
+        mapParams,
         search: async function (origParams) {
           qidoDicomWebClient.headers = getAuthorizationHeader();
-          const { studyInstanceUid, seriesInstanceUid, ...mappedParams } =
-            mapParams(origParams, {
+          const mapped = mapParams(origParams, {
               supportsFuzzyMatching: dicomWebConfig.supportsFuzzyMatching,
               supportsWildcard: dicomWebConfig.supportsWildcard,
             }) || {};
+          const { studyInstanceUid, seriesInstanceUid, ...mappedParams } = (mapped as any);
 
           const results = await qidoSearch(qidoDicomWebClient, undefined, undefined, mappedParams);
 
           return processResults(results);
         },
-        processResults: processResults.bind(),
+        processResults,
       },
       series: {
         // mapParams: mapParams.bind(),
@@ -363,7 +401,7 @@ function createDicomWebApi(dicomWebConfig: DicomWebConfig, servicesManager) {
           sortFunction,
           madeInClient = false,
           returnPromises = false,
-        } = {}) => {
+        } = {} as any) => {
           if (!StudyInstanceUID) {
             throw new Error('Unable to query for SeriesMetadata without StudyInstanceUID');
           }
@@ -392,7 +430,9 @@ function createDicomWebApi(dicomWebConfig: DicomWebConfig, servicesManager) {
 
     store: {
       dicom: async (dataset, request, dicomDict) => {
-        wadoDicomWebClient.headers = getAuthorizationHeader();
+        const authHeaders = getAuthorizationHeader();
+        wadoDicomWebClient.headers = authHeaders;
+        
         if (dataset instanceof ArrayBuffer) {
           const options = {
             datasets: [dataset],
@@ -704,10 +744,7 @@ function createDicomWebApi(dicomWebConfig: DicomWebConfig, servicesManager) {
     },
   };
 
-  if (dicomWebConfig.supportsReject) {
-    implementation.reject = dcm4cheeReject(dicomWebConfig.wadoRoot, getAuthorizationHeader);
-  }
-
+  // implementation.reject is now set at creation time
   return IWebApiDataSource.create(implementation);
 }
 
@@ -719,7 +756,7 @@ function createDicomWebApi(dicomWebConfig: DicomWebConfig, servicesManager) {
  *    next retrieve instance.
  * @param options - to allow specifying the content type.
  */
-function retrieveBulkData(value, options = {}) {
+function retrieveBulkData(value, options: any = {}) {
   const { mediaType } = options;
   const useOptions = {
     // The bulkdata fetches work with either multipart or

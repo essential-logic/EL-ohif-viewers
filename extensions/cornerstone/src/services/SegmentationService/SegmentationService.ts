@@ -979,6 +979,30 @@ class SegmentationService extends PubSubService {
   }
 
   /**
+   * Gets the visibility of a specific segment in a viewport.
+   * @param viewportId - The ID of the viewport
+   * @param segmentationId - The ID of the segmentation
+   * @param segmentIndex - The index of the segment
+   * @param type - The representation type
+   * @returns boolean indicating if the segment is visible
+   */
+  public getSegmentVisibility(
+    viewportId: string,
+    segmentationId: string,
+    segmentIndex: number,
+    type: csToolsEnums.SegmentationRepresentations
+  ): boolean {
+    return cstSegmentation.config.visibility.getSegmentIndexVisibility(
+      viewportId,
+      {
+        segmentationId,
+        type,
+      },
+      segmentIndex
+    );
+  }
+
+  /**
    * Sets the locked status of a segment in a segmentation.
    *
    * @param segmentationId - The ID of the segmentation containing the segment.
@@ -2003,6 +2027,12 @@ class SegmentationService extends PubSubService {
       segmentIndex,
       isVisible
     );
+
+    // Manually broadcast to ensure UI updates
+    this._broadcastEvent(this.EVENTS.SEGMENTATION_REPRESENTATION_MODIFIED, {
+      segmentationId,
+      viewportId,
+    });
   }
 
   private _setSegmentLabel(segmentationId: string, segmentIndex: number, segmentLabel: string) {

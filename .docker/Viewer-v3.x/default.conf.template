@@ -4,6 +4,109 @@ server {
   gunzip       on;
   listen ${PORT} default_server;
   listen [::]:${PORT} default_server;
+  client_max_body_size 2G;
+  resolver 8.8.8.8 valid=30s;
+
+  # ── Orthanc DICOMweb proxy ──────────────────────────────────────────────
+  # Forwards /dicom-web/* and /wado/* to the Orthanc backend.
+  # Set ORTHANC_HOST at runtime (docker run -e ORTHANC_HOST=...) to override.
+  location /dicom-web/ {
+    # CORS Headers
+    add_header 'Access-Control-Allow-Origin' '*' always;
+    add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+    add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,Accept' always;
+    add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
+
+    if ($request_method = 'OPTIONS') {
+      add_header 'Access-Control-Allow-Origin' '*';
+      add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
+      add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,Accept';
+      add_header 'Access-Control-Max-Age' 1728000;
+      add_header 'Content-Type' 'text/plain; charset=utf-8';
+      add_header 'Content-Length' 0;
+      return 204;
+    }
+
+    proxy_pass ${ORTHANC_HOST}/dicom-web/;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Host $proxy_host;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+    proxy_ssl_server_name on;
+    proxy_ssl_protocols TLSv1.2 TLSv1.3;
+
+    # ── Rewrite absolute Orthanc bulk data URLs to relative paths ──────────
+    # Orthanc may embed absolute URLs like http://HOST/dicom-web/... in its
+    # DICOM metadata responses. These must be rewritten to /dicom-web/... so
+    # the browser resolves them through this proxy (port 8080) rather than
+    # going directly to the Orthanc host (port 80), which would cause CORS.
+    proxy_hide_header 'Access-Control-Allow-Origin';
+    sub_filter_once off;
+    sub_filter_types *;
+    sub_filter '"http://${ORTHANC_ROOT_HOST}/dicom-web/' '"/dicom-web/';
+    sub_filter '"http://${ORTHANC_ROOT_HOST}:8042/dicom-web/' '"/dicom-web/';
+    sub_filter 'http://${ORTHANC_ROOT_HOST}/dicom-web/' '/dicom-web/';
+    sub_filter 'http://${ORTHANC_ROOT_HOST}:8042/dicom-web/' '/dicom-web/';
+  }
+
+  location /wado/ {
+    # CORS Headers
+    add_header 'Access-Control-Allow-Origin' '*' always;
+    add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+    add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+    add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
+
+    if ($request_method = 'OPTIONS') {
+      add_header 'Access-Control-Allow-Origin' '*';
+      add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
+      add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization';
+      add_header 'Access-Control-Max-Age' 1728000;
+      add_header 'Content-Type' 'text/plain; charset=utf-8';
+      add_header 'Content-Length' 0;
+      return 204;
+    }
+
+    proxy_pass ${ORTHANC_HOST}/wado/;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Host $proxy_host;
+    proxy_read_timeout 300s;
+    proxy_ssl_server_name on;
+    proxy_ssl_protocols TLSv1.2 TLSv1.3;
+  }
+  # Proxy for custom management and upload endpoints
+  location /upload-dicom {
+    proxy_pass ${ORTHANC_HOST}/upload-dicom;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_send_timeout 300s;
+  }
+  location /studies/ {
+    proxy_pass ${ORTHANC_HOST}/studies/;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+  location /my-studies {
+    proxy_pass ${ORTHANC_HOST}/my-studies;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+
+  # ── AWS Public Demo Proxy ────────────────────────────────────────────────
+  # Forwards /aws-dicomweb/* to the OHIF public demo CloudFront distribution.
+  # This resolves CORS issues for the public studies.
+  location /aws-dicomweb/ {
+    proxy_pass https://d14fa38qiwhyfd.cloudfront.net/dicomweb/;
+    proxy_set_header Host d14fa38qiwhyfd.cloudfront.net;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_ssl_server_name on;
+    proxy_ssl_protocols TLSv1.2 TLSv1.3;
+    proxy_read_timeout 300s;
+    
+    # Optional: Force CORS headers if the upstream doesn't provide them
+    add_header 'Access-Control-Allow-Origin' '*' always;
+    add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+    add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,Accept' always;
+  }
+
   location / {
     root   /usr/share/nginx/html;
     index  index.html index.htm;
