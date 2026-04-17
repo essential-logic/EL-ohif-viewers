@@ -49,6 +49,7 @@ interface ToolPanelProps {
   activeTool: string;
   setActiveTool: (tool: string) => void;
   onToggleAdjustments?: () => void;
+  setViewMode?: (mode: string) => void;
   isMobile?: boolean;
 }
 
@@ -92,6 +93,7 @@ export function ToolPanel({
   activeTool,
   setActiveTool,
   onToggleAdjustments,
+  setViewMode,
   isMobile,
 }: ToolPanelProps) {
   const [brightness, setBrightness] = React.useState(100);
@@ -167,6 +169,19 @@ export function ToolPanel({
 
   const handleToolClick = (id: string, isAction: boolean = false) => {
     setActiveTool?.(id);
+
+    // Sync the top mode tab (right panel overlay) based on the chosen tool
+    if (['Length', 'Angle', 'CircleROI', 'RectangleROI', 'Probe', 'ArrowAnnotate'].includes(id)) {
+      setViewMode?.('annotation');
+    } else if (['Wwwc', 'wl_soft', 'wl_lung', 'wl_bone', 'wl_brain', 'wl_liver'].includes(id)) {
+      setViewMode?.('adjustments');
+    } else if (
+      ['Brush', 'Eraser', 'CircleScissors', 'RectangleScissors', 'SphereScissors'].includes(id)
+    ) {
+      setViewMode?.('segmentation');
+    } else if (['WindowLevel', 'Pan', 'Zoom', 'StackScroll', 'Magnify'].includes(id)) {
+      setViewMode?.('viewer');
+    }
 
     if (isAction) {
       commandsManager?.runCommand(id);

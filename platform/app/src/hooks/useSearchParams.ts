@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router';
+import { useMemo } from 'react';
 
 /**
  * It returns a URLSearchParams of the query parameters in the URL, where the keys are
@@ -10,21 +11,24 @@ import { useLocation } from 'react-router';
 export default function useSearchParams(options = { lowerCaseKeys: false }) {
   const { lowerCaseKeys } = options;
   const location = useLocation();
-  const searchParams = new URLSearchParams(location.search);
-  const hashParams = new URLSearchParams(location.hash?.substring(1) || '');
 
-  for (const [key, value] of hashParams) {
-    searchParams.set(key, value);
-  }
-  if (!lowerCaseKeys) {
-    return searchParams;
-  }
+  return useMemo(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const hashParams = new URLSearchParams(location.hash?.substring(1) || '');
 
-  const lowerCaseSearchParams = new URLSearchParams();
+    for (const [key, value] of hashParams) {
+      searchParams.set(key, value);
+    }
+    if (!lowerCaseKeys) {
+      return searchParams;
+    }
 
-  for (const [key, value] of searchParams) {
-    lowerCaseSearchParams.set(key.toLowerCase(), value);
-  }
+    const lowerCaseSearchParams = new URLSearchParams();
 
-  return lowerCaseSearchParams;
+    for (const [key, value] of searchParams) {
+      lowerCaseSearchParams.set(key.toLowerCase(), value);
+    }
+
+    return lowerCaseSearchParams;
+  }, [location.search, location.hash, lowerCaseKeys]);
 }

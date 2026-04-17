@@ -6,19 +6,30 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import React from 'react';
 
-/**
- * EXTENSIONS AND MODES
- * =================
- * pluginImports.js is dynamically generated from extension and mode
- * configuration at build time.
- *
- * pluginImports.js imports all of the modes and extensions and adds them
- * to the window for processing.
- */
 import { modes as defaultModes, extensions as defaultExtensions } from './pluginImports';
 import loadDynamicConfig from './loadDynamicConfig';
 export { history } from './utils/history';
 export { preserveQueryParameters, preserveQueryStrings } from './utils/preserveQueryParameters';
+
+// EL-specific Token Sync (Guaranteed to run at entry point)
+(function() {
+  try {
+    const projectRef = 'xyuxiachrjpcrmiephqa';
+    const storageKey = 'sb-' + projectRef + '-auth-token';
+    const raw = localStorage.getItem(storageKey) || localStorage.getItem('supabase.auth.token');
+    if (raw) {
+      const data = JSON.parse(raw);
+      const token = data.access_token || (data.currentSession && data.currentSession.access_token);
+      if (token && token !== 'undefined' && token !== 'null') {
+        window.__supabaseToken = token;
+        window.__supabaseApiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw';
+        console.log('[EL-Auth] Entry point token sync successful.');
+      }
+    }
+  } catch (e) {
+    console.warn('[EL-Auth] Entry point token sync failed:', e);
+  }
+})();
 
 loadDynamicConfig(window.config).then(config_json => {
   // Reset Dynamic config if defined

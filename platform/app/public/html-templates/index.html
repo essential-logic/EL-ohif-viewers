@@ -45,6 +45,29 @@
     <script type="text/javascript">
       console.time('scriptToView');
       window.PUBLIC_URL = '<%= PUBLIC_URL %>';
+      
+      // EL-specific Token Sync (Critical for 401 fixes)
+      (function() {
+        try {
+          var projectRef = 'xyuxiachrjpcrmiephqa';
+          var storageKey = 'sb-' + projectRef + '-auth-token';
+          var raw = localStorage.getItem(storageKey) || localStorage.getItem('supabase.auth.token');
+          if (raw) {
+            var data = JSON.parse(raw);
+            var token = data.access_token || (data.currentSession && data.currentSession.access_token);
+            if (token && token !== 'undefined' && token !== 'null') {
+              window.__supabaseToken = token;
+              console.log('[EL-Auth] Early token sync successful.');
+            } else {
+              console.warn('[EL-Auth] Found storage entry but no valid token string.');
+            }
+          } else {
+            console.log('[EL-Auth] No token found in storage for sync.');
+          }
+        } catch (e) {
+          console.warn('[EL-Auth] Early token sync failed:', e);
+        }
+      })();
     </script>
     <link
       rel="manifest"

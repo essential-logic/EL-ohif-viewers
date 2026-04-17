@@ -198,7 +198,15 @@ function DicomUploadProgress({
           // If any error occurred, the percent complete progress stops firing
           // but this call to updateProgress nicely puts all finished uploads at 100%.
           updateProgress(100);
-          setNumFilesCompleted(numCompleted => numCompleted + 1);
+          setNumFilesCompleted(numCompleted => {
+            const nextCount = numCompleted + 1;
+            // When ALL files are done, dispatch a DOM event so the study list
+            // can refresh without requiring a full page reload.
+            if (nextCount === dicomFileUploaderArr.length) {
+              window.dispatchEvent(new CustomEvent('ohif-studies-updated'));
+            }
+            return nextCount;
+          });
         });
 
       return fileUploader.subscribe(EVENTS.PROGRESS, progressCallback);
@@ -208,19 +216,14 @@ function DicomUploadProgress({
     };
   }, []);
 
-  const cancelAllUploads = useCallback(async () => {
+  const cancelAllUploads = useCallback(() => {
+    // abort() is synchronous — no need for Promise wrappers.
+    // The previous implementation created Promises that were immediately
+    // garbage-collected without being awaited, making Cancel a no-op.
     for (const dicomFileUploader of dicomFileUploaderArr) {
-      // Important: we need a non-blocking way to cancel every upload,
-      // otherwise the UI will freeze and the user will not be able
-      // to interact with the app and progress will not be updated.
-      const promise = new Promise<void>((resolve, reject) => {
-        setTimeout(() => {
-          dicomFileUploader.cancel();
-          resolve();
-        }, 0);
-      });
+      dicomFileUploader.cancel();
     }
-  }, []);
+  }, [dicomFileUploaderArr]);
 
   const getFormattedTimeRemaining = useCallback((): string => {
     if (timeRemaining == null) {

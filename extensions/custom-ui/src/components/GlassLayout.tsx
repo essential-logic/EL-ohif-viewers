@@ -33,7 +33,7 @@ export function GlassLayout({
       }}
       className={className}
     >
-      {/* Animated Deep Space Background */}
+      {/* High-Performance Background Glows (Radial Gradients instead of Blur) */}
       <Box
         sx={{
           position: 'absolute',
@@ -41,42 +41,39 @@ export function GlassLayout({
           zIndex: 0,
           pointerEvents: 'none',
           overflow: 'hidden',
+          willChange: 'transform',
         }}
       >
         <Box
           sx={{
             position: 'absolute',
-            top: '-20%',
+            top: '-15%',
             left: '-10%',
             width: '50%',
             height: '50%',
-            bgcolor: 'primary.main',
-            opacity: 0.1,
+            background: 'radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%)',
             borderRadius: '50%',
-            filter: 'blur(120px)',
-            animation: 'pulse_bg 8s infinite ease-in-out',
+            animation: 'pulse_bg 10s infinite ease-in-out',
           }}
         />
         <Box
           sx={{
             position: 'absolute',
-            bottom: '-20%',
+            bottom: '-15%',
             right: '-10%',
             width: '50%',
             height: '50%',
-            bgcolor: 'secondary.main',
-            opacity: 0.1,
+            background: 'radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%)',
             borderRadius: '50%',
-            filter: 'blur(120px)',
-            animation: 'pulse_bg 8s infinite ease-in-out',
-            animationDelay: '4s',
+            animation: 'pulse_bg 10s infinite ease-in-out',
+            animationDelay: '5s',
           }}
         />
         <style>
           {`
             @keyframes pulse_bg {
-              0%, 100% { opacity: 0.1; transform: scale(1); }
-              50% { opacity: 0.15; transform: scale(1.1); }
+              0%, 100% { transform: translate(0,0) scale(1); opacity: 0.1; }
+              50% { transform: translate(1%, 1%) scale(1.05); opacity: 0.15; }
             }
           `}
         </style>

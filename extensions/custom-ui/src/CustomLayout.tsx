@@ -8,8 +8,10 @@ import {
   useMediaQuery,
   Drawer,
   IconButton,
+  Button,
+  Typography,
 } from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
+import { Close as CloseIcon, CloudDownload as CloudDownloadIcon } from '@mui/icons-material';
 import { theme } from './Theme';
 import { GlassLayout } from './components/GlassLayout';
 import { GlassToolbar } from './components/GlassToolbar';
@@ -20,6 +22,8 @@ import { SegmentationPanel } from './components/SegmentationPanel';
 import { CinePlayer } from './components/CinePlayer';
 import { ImageAdjustmentPanel } from './components/ImageAdjustmentPanel';
 import { MobileDock } from './components/MobileDock';
+import { StudyBrowser } from './components/StudyBrowser';
+import { useAnnotationPersistence } from './hooks/useAnnotationPersistence';
 import { ServicesManager, CommandsManager, HotkeysManager, ExtensionManager } from '@ohif/core';
 
 interface ViewportConfig {
@@ -54,6 +58,8 @@ export default function CustomLayout({
   hotkeysManager,
   studyInstanceUIDs,
 }: CustomLayoutProps) {
+  console.log('[CustomLayout] Received studyInstanceUIDs:', studyInstanceUIDs);
+
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
 
@@ -63,6 +69,14 @@ export default function CustomLayout({
   const [isCinePlaying, setIsCinePlaying] = useState(false);
   const [currentFrame, setCurrentFrame] = useState(1);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // ─── Annotation Persistence ─────────────────────────────────────────────
+  const { pendingAnnotationsCount, loadPendingAnnotations } = useAnnotationPersistence(
+    servicesManager,
+    commandsManager,
+    extensionManager,
+    studyInstanceUIDs
+  );
 
   // RESOLUTION LOGIC: Convert viewport namespaces (strings) into actual components
   const getViewportComponentData = (viewportComponent: ViewportConfig) => {
@@ -113,21 +127,25 @@ export default function CustomLayout({
             commandsManager={commandsManager}
             activeTool={activeTool}
             setActiveTool={setActiveTool}
-            onToggleAdjustments={() =>
-              setViewMode(v => (v === 'adjustments' ? 'viewer' : 'adjustments'))
-            }
+            setViewMode={setViewMode}
             isMobile={isMobile}
           />
         }
         rightPanel={
-          viewMode === 'viewer' ? (
-            <ImageInfo servicesManager={servicesManager} />
+          viewMode === 'studies' ? (
+            <StudyBrowser
+              servicesManager={servicesManager as any}
+              commandsManager={commandsManager}
+            />
+          ) : viewMode === 'viewer' ? (
+            <ImageInfo servicesManager={servicesManager as any} />
           ) : viewMode === 'segmentation' ? (
             <SegmentationPanel
               servicesManager={servicesManager}
               commandsManager={commandsManager}
               activeTool={activeTool}
               setActiveTool={setActiveTool}
+              studyInstanceUIDs={studyInstanceUIDs}
             />
           ) : viewMode === 'adjustments' ? (
             <ImageAdjustmentPanel commandsManager={commandsManager} />
@@ -137,6 +155,7 @@ export default function CustomLayout({
               commandsManager={commandsManager}
               activeTool={activeTool}
               setActiveTool={setActiveTool}
+              studyInstanceUIDs={studyInstanceUIDs}
             />
           )
         }
@@ -153,6 +172,53 @@ export default function CustomLayout({
             position: 'relative',
           }}
         >
+          {/* Annotation Hydration Prompt */}
+          {pendingAnnotationsCount > 0 && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 24,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 9999,
+                bgcolor: 'rgba(15, 23, 42, 0.85)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(14, 165, 233, 0.3)',
+                borderRadius: 2,
+                p: 2,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 3,
+                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <CloudDownloadIcon sx={{ color: 'primary.main' }} />
+                <Typography variant="body1" sx={{ color: 'white', fontWeight: 500 }}>
+                  Found {pendingAnnotationsCount} previous annotations for this study.
+                </Typography>
+              </Box>
+              <Button
+                variant="contained"
+                onClick={loadPendingAnnotations}
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 3,
+                  py: 1,
+                  borderRadius: 1.5,
+                  '&:hover': {
+                    bgcolor: 'primary.dark',
+                  },
+                }}
+              >
+                Load Annotations
+              </Button>
+            </Box>
+          )}
+
           {/* Mobile Tool Drawer */}
           <Drawer
             anchor="left"
@@ -189,27 +255,32 @@ export default function CustomLayout({
                     setIsDrawerOpen(false);
                   }
                 }}
-                onToggleAdjustments={() =>
-                  setViewMode(v => (v === 'adjustments' ? 'viewer' : 'adjustments'))
-                }
+                setViewMode={setViewMode}
                 isMobile={isMobile}
               />
               <Box sx={{ flex: 1, overflowY: 'auto' }}>
-                {viewMode === 'viewer' ? (
-                  <ImageInfo servicesManager={servicesManager} />
+                {viewMode === 'studies' ? (
+                  <StudyBrowser
+                    servicesManager={servicesManager as any}
+                    commandsManager={commandsManager}
+                  />
+                ) : viewMode === 'viewer' ? (
+                  <ImageInfo servicesManager={servicesManager as any} studyInstanceUIDs={studyInstanceUIDs} />
                 ) : viewMode === 'segmentation' ? (
                   <SegmentationPanel
                     servicesManager={servicesManager}
                     commandsManager={commandsManager}
                     activeTool={activeTool}
                     setActiveTool={setActiveTool}
+                    studyInstanceUIDs={studyInstanceUIDs}
                   />
                 ) : (
                   <AnnotationPanel
-                    servicesManager={servicesManager}
+                    servicesManager={servicesManager as any}
                     commandsManager={commandsManager}
                     activeTool={activeTool}
                     setActiveTool={setActiveTool}
+                    studyInstanceUIDs={studyInstanceUIDs}
                   />
                 )}
               </Box>

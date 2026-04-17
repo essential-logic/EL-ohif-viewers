@@ -6,7 +6,7 @@ import classNames from 'classnames';
 import DicomFileUploader from '../../utils/DicomFileUploader';
 import DicomUploadProgress from './DicomUploadProgress';
 import { Button } from '@ohif/ui-next';
-// Removed dashed border CSS; using simple 1px solid border with muted foreground color
+import { useSystem } from '@ohif/core';
 
 type DicomUploadProps = {
   dataSource;
@@ -19,10 +19,26 @@ function DicomUpload({ dataSource, onComplete, onStarted }: DicomUploadProps): R
     'min-h-[375px] flex flex-col bg-black select-none rounded-lg overflow-hidden';
   const [dicomFileUploaderArr, setDicomFileUploaderArr] = useState([]);
 
-  const onDrop = useCallback(async acceptedFiles => {
-    onStarted();
-    setDicomFileUploaderArr(acceptedFiles.map(file => new DicomFileUploader(file, dataSource)));
-  }, []);
+  // ── Auth header access ────────────────────────────────────────────────────
+  // We pull getAuthorizationHeader from the OHIF auth service so each
+  // DicomFileUploader can inject a fresh Bearer token at upload time,
+  // avoiding stale-token 401s that the old approach was prone to.
+  const { servicesManager } = useSystem();
+  const { userAuthenticationService } = servicesManager.services as any;
+  const getAuthorizationHeader = useCallback(
+    () => userAuthenticationService?.getAuthorizationHeader?.() ?? {},
+    [userAuthenticationService]
+  );
+
+  const onDrop = useCallback(
+    async acceptedFiles => {
+      onStarted();
+      setDicomFileUploaderArr(
+        acceptedFiles.map(file => new DicomFileUploader(file, dataSource, getAuthorizationHeader))
+      );
+    },
+    [dataSource, getAuthorizationHeader, onStarted]
+  );
 
   const getDropZoneComponent = (): ReactElement => {
     return (

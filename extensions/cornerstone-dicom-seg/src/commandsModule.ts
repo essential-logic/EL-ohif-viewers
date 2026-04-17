@@ -210,71 +210,62 @@ const commandsModule = ({
      * otherwise throws an error.
      */
     storeSegmentation: async ({ segmentationId, dataSource, modality = 'SEG' }) => {
+      console.log('[DICOM-SEG] storeSegmentation - Start', { segmentationId, modality });
       const segmentation = segmentationService.getSegmentation(segmentationId);
 
       if (!segmentation) {
+        console.error('[DICOM-SEG] No segmentation found for ID:', segmentationId);
         throw new Error('No segmentation found');
       }
 
       const { label, predecessorImageId } = segmentation;
       const defaultDataSource = dataSource ?? extensionManager.getActiveDataSource()[0];
 
-      const {
-        value: reportName,
-        dataSourceName: selectedDataSource,
-        series,
-        priorSeriesNumber,
-        action,
-      } = await createReportDialogPrompt({
-        servicesManager,
-        extensionManager,
-        predecessorImageId,
-        title: 'Store Segmentation',
-        modality,
-      });
+      try {
+        const selectedDataSourceConfig = defaultDataSource;
+        console.log('[DICOM-SEG] Using DataSource:', selectedDataSourceConfig.getConfig().name);
 
-      if (action === PROMPT_RESPONSES.CREATE_REPORT) {
-        try {
-          const selectedDataSourceConfig = selectedDataSource
-            ? extensionManager.getDataSources(selectedDataSource)[0]
-            : defaultDataSource;
+        const args = {
+          segmentationId,
+          options: {
+            SeriesDescription: label || 'Segmentation Series',
+            SeriesNumber: 100,
+            predecessorImageId: predecessorImageId || undefined,
+          },
+        };
 
-          const args = {
-            segmentationId,
-            options: {
-              SeriesDescription: series ? undefined : reportName || label || 'Contour Series',
-              SeriesNumber: series ? undefined : 1 + priorSeriesNumber,
-              predecessorImageId: series,
-            },
-          };
-          const generatedDataAsync =
-            (modality === 'SEG' && actions.generateSegmentation(args)) ||
-            (modality === 'RTSTRUCT' && actions.generateContour(args));
-          const generatedData = await generatedDataAsync;
+        console.log('[DICOM-SEG] Generating segmentation DICOM data...');
+        const generatedDataAsync =
+          (modality === 'SEG' && actions.generateSegmentation(args)) ||
+          (modality === 'RTSTRUCT' && actions.generateContour(args));
+        const generatedData = await generatedDataAsync;
 
-          if (!generatedData || !generatedData.dataset) {
-            throw new Error('Error during segmentation generation');
-          }
-
-          const { dataset: naturalizedReport } = generatedData;
-
-          // DCMJS assigns a dummy study id during creation, and this can cause problems, so clearing it out
-          if (naturalizedReport.StudyID === 'No Study ID') {
-            naturalizedReport.StudyID = '';
-          }
-
-          await selectedDataSourceConfig.store.dicom(naturalizedReport);
-
-          // add the information for where we stored it to the instance as well
-          naturalizedReport.wadoRoot = selectedDataSourceConfig.getConfig().wadoRoot;
-
-          DicomMetadataStore.addInstances([naturalizedReport], true);
-
-          return naturalizedReport;
-        } catch (error) {
-          console.debug('Error storing segmentation:', error);
-          throw error;
+        if (!generatedData || !generatedData.dataset) {
+          console.error('[DICOM-SEG] Generation failed: No dataset produced');
+          throw new Error('Error during segmentation generation');
         }
+
+        const { dataset: naturalizedReport } = generatedData;
+
+        // DCMJS assigns a dummy study id during creation, and this can cause problems, so clearing it out
+        if (naturalizedReport.StudyID === 'No Study ID') {
+          naturalizedReport.StudyID = '';
+        }
+
+        console.log('[DICOM-SEG] Storing DICOM to server...');
+        await selectedDataSourceConfig.store.dicom(naturalizedReport);
+        console.log('[DICOM-SEG] Store successful');
+
+        // add the information for where we stored it to the instance as well
+        naturalizedReport.wadoRoot = selectedDataSourceConfig.getConfig().wadoRoot;
+
+        console.log('[DICOM-SEG] Adding instance to DicomMetadataStore...');
+        DicomMetadataStore.addInstances([naturalizedReport], true);
+
+        return naturalizedReport;
+      } catch (error) {
+        console.error('[DICOM-SEG] Error in storeSegmentation:', error);
+        throw error;
       }
     },
 

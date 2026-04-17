@@ -2,7 +2,7 @@
 
 window.config = {
   name: 'config/default.js',
-  routerBasename: null,
+  routerBasename: '/',
   // whiteLabeling: {},
   extensions: [],
   modes: [],
@@ -19,11 +19,11 @@ window.config = {
   groupEnabledModesFirst: true,
   allowMultiSelectExport: false,
   maxNumRequests: {
-    interaction: 100,
-    thumbnail: 75,
+    interaction: 15,
+    thumbnail: 5,
     // Prefetch number is dependent on the http protocol. For http 2 or
     // above, the number of requests can be go a lot higher.
-    prefetch: 25,
+    prefetch: 5,
   },
   showErrorDetails: 'always', // 'always', 'dev', 'production'
   // filterQueryParam: false,
@@ -102,13 +102,118 @@ window.config = {
   dataSources: [
     {
       namespace: '@ohif/extension-default.dataSourcesModule.dicomweb',
+      sourceName: 'orthanc',
+      configuration: {
+        friendlyName: 'My PACS (Secure User Isolation)',
+        name: 'orthanc',
+        wadoUriRoot: 'https://xyuxiachrjpcrmiephqa.supabase.co/functions/v1/orthanc-proxy/wado',
+        qidoRoot: 'https://xyuxiachrjpcrmiephqa.supabase.co/functions/v1/orthanc-proxy/dicom-web',
+        wadoRoot: 'https://xyuxiachrjpcrmiephqa.supabase.co/functions/v1/orthanc-proxy/dicom-web',
+        qidoSupportsIncludeField: true,
+        supportsReject: true,
+        dicomUploadEnabled: true,
+        // Enforce Authorization headers for all requests through the proxy
+        requestOptions: {
+          headers: () => {
+            // Strategy: Try common Supabase localStorage key formats
+            const projectRef = 'xyuxiachrjpcrmiephqa';
+            const knownKeys = [
+              `sb-${projectRef}-auth-token`,
+              `sb-${window.location.hostname}-auth-token`,
+              'supabase.auth.token',
+            ];
+
+            for (const key of knownKeys) {
+              const raw = localStorage.getItem(key);
+              if (raw) {
+                try {
+                  const session = JSON.parse(raw);
+                  const token = session?.access_token ?? session?.currentSession?.access_token;
+                  if (token && token !== 'undefined' && token !== 'null') {
+                    // Basic check: is it non-expired? (Supabase stores expires_at in seconds)
+                    const expiresAt = session?.expires_at ?? session?.currentSession?.expires_at;
+                    if (expiresAt && expiresAt < Date.now() / 1000 - 10) {
+                      console.warn('[EL-OHIF] Found expired session in localStorage key:', key);
+                      continue;
+                    }
+                    return {
+                      Authorization: `Bearer ${token}`,
+                      apikey:
+                        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw',
+                    };
+                  }
+                } catch (e) {
+                  /* ignore */
+                }
+              }
+            }
+
+            // Fallback: Scan all keys for auth-token
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (
+                key &&
+                key.includes('auth-token') &&
+                (key.startsWith('sb-') || key === 'supabase.auth.token')
+              ) {
+                try {
+                  const session = JSON.parse(localStorage.getItem(key) || '{}');
+                  const token = session?.access_token ?? session?.currentSession?.access_token;
+                  if (token && token !== 'undefined' && token !== 'null') {
+                    const expiresAt = session?.expires_at ?? session?.currentSession?.expires_at;
+                    if (expiresAt && expiresAt < Date.now() / 1000 - 10) {
+                      continue;
+                    }
+                    return {
+                      Authorization: `Bearer ${token}`,
+                      apikey:
+                        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw',
+                    };
+                  }
+                } catch (e) {
+                  /* ignore */
+                }
+              }
+            }
+
+            console.warn(
+              '[EL-OHIF] No valid Supabase auth token found. Request may be unauthorized.'
+            );
+            return {
+              apikey:
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw',
+              Authorization:
+                'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw',
+             };
+          },
+        },
+        imageRendering: 'wadors',
+        thumbnailRendering: 'wadors',
+        enableStudyLazyLoad: true,
+        supportsFuzzyMatching: true,
+        supportsWildcard: true,
+        omitQuotationForMultipartRequest: true,
+        // Throttle concurrent requests to prevent flooding upstream.
+        // Each frame load hits the proxy → Orthanc, so cap parallelism.
+        maxNumRequests: {
+          interaction: 1, // Tool interactions (windowing, zoom) — highest priority
+          thumbnail: 4, // Thumbnail loading
+          prefetch: 4, // Background prefetch
+        },
+        bulkDataURI: {
+          enabled: true,
+        },
+      },
+    },
+    {
+      namespace: '@ohif/extension-default.dataSourcesModule.dicomweb',
       sourceName: 'ohif',
       configuration: {
         friendlyName: 'AWS S3 Static wado server',
         name: 'aws',
-        wadoUriRoot: 'https://d14fa38qiwhyfd.cloudfront.net/dicomweb',
-        qidoRoot: 'https://d14fa38qiwhyfd.cloudfront.net/dicomweb',
-        wadoRoot: 'https://d14fa38qiwhyfd.cloudfront.net/dicomweb',
+        wadoUriRoot: 'https://d33do7qe4w26qo.cloudfront.net/dicomweb',
+        qidoRoot: 'https://d33do7qe4w26qo.cloudfront.net/dicomweb',
+        wadoRoot: 'https://d33do7qe4w26qo.cloudfront.net/dicomweb',
         qidoSupportsIncludeField: false,
         imageRendering: 'wadors',
         thumbnailRendering: 'wadors',
@@ -116,6 +221,7 @@ window.config = {
         supportsFuzzyMatching: true,
         supportsWildcard: false,
         staticWado: true,
+        skipAuth: true,
         singlepart: 'bulkdata,video',
         // whether the data source should use retrieveBulkData to grab metadata,
         // and in case of relative path, what would it be relative to, options
@@ -135,9 +241,9 @@ window.config = {
       configuration: {
         friendlyName: 'AWS S3 Static wado secondary server',
         name: 'aws',
-        wadoUriRoot: 'https://dd14fa38qiwhyfd.cloudfront.net/dicomweb',
-        qidoRoot: 'https://dd14fa38qiwhyfd.cloudfront.net/dicomweb',
-        wadoRoot: 'https://dd14fa38qiwhyfd.cloudfront.net/dicomweb',
+        wadoUriRoot: 'https://dd33do7qe4w26qo.cloudfront.net/dicomweb',
+        qidoRoot: 'https://dd33do7qe4w26qo.cloudfront.net/dicomweb',
+        wadoRoot: 'https://dd33do7qe4w26qo.cloudfront.net/dicomweb',
         qidoSupportsIncludeField: false,
         supportsReject: false,
         imageRendering: 'wadors',
@@ -146,6 +252,7 @@ window.config = {
         supportsFuzzyMatching: false,
         supportsWildcard: true,
         staticWado: true,
+        skipAuth: true,
         singlepart: 'bulkdata,video',
         // whether the data source should use retrieveBulkData to grab metadata,
         // and in case of relative path, what would it be relative to, options
@@ -174,6 +281,7 @@ window.config = {
         supportsFuzzyMatching: false,
         supportsWildcard: true,
         staticWado: true,
+        skipAuth: true,
         singlepart: 'bulkdata,video',
         // whether the data source should use retrieveBulkData to grab metadata,
         // and in case of relative path, what would it be relative to, options
@@ -210,40 +318,6 @@ window.config = {
         },
       },
     },
-    {
-      namespace: '@ohif/extension-default.dataSourcesModule.dicomweb',
-      sourceName: 'orthanc',
-      configuration: {
-        friendlyName: 'local Orthanc DICOMWeb Server',
-        name: 'DCM4CHEE',
-        wadoUriRoot: '/pacs/dicom-web',
-        qidoRoot: '/pacs/dicom-web',
-        wadoRoot: '/pacs/dicom-web',
-        qidoSupportsIncludeField: true,
-        supportsReject: true,
-        dicomUploadEnabled: true,
-        imageRendering: 'wadors',
-        thumbnailRendering: 'wadors',
-        enableStudyLazyLoad: true,
-        supportsFuzzyMatching: true,
-        supportsWildcard: true,
-        omitQuotationForMultipartRequest: true,
-        bulkDataURI: {
-          enabled: true,
-          // This is an example config that can be used to fix the retrieve URL
-          // where it has the wrong prefix (eg a canned prefix).  It is better to
-          // just use the correct prefix out of the box, but that is sometimes hard
-          // when URLs go through several systems.
-          // Example URLS are:
-          // "BulkDataURI" : "http://localhost/dicom-web/studies/1.2.276.0.7230010.3.1.2.2344313775.14992.1458058363.6979/series/1.2.276.0.7230010.3.1.3.1901948703.36080.1484835349.617/instances/1.2.276.0.7230010.3.1.4.1901948703.36080.1484835349.618/bulk/00420011",
-          // when running on http://localhost:3003 with no server running on localhost.  This can be corrected to:
-          // /orthanc/dicom-web/studies/1.2.276.0.7230010.3.1.2.2344313775.14992.1458058363.6979/series/1.2.276.0.7230010.3.1.3.1901948703.36080.1484835349.617/instances/1.2.276.0.7230010.3.1.4.1901948703.36080.1484835349.618/bulk/00420011
-          // which is a valid relative URL, and will result in using the http://localhost:3003/orthanc/.... path
-          // startsWith: 'http://localhost/',
-          // prefixWith: '/orthanc/',
-        },
-      },
-    },
 
     {
       namespace: '@ohif/extension-default.dataSourcesModule.dicomwebproxy',
@@ -269,12 +343,24 @@ window.config = {
       },
     },
   ],
-  httpErrorHandler: error => {
-    // This is 429 when rejected from the public idc sandbox too often.
-    console.warn(error.status);
+  httpErrorHandler: async error => {
+    if (error && typeof error === 'object' && 'status' in error) {
+      console.warn('[EL-OHIF] HTTP Error Status:', error.status);
 
-    // Could use services manager here to bring up a dialog/modal if needed.
-    console.warn('test, navigate to https://ohif.org/');
+      const err = /** @type {any} */ (error);
+      // If 401, try to log the error message from the proxy body
+      if (err.status === 401 && err.response) {
+        try {
+          const body = await err.response.json();
+          console.error('[EL-OHIF] Proxy Auth Error:', body.error || 'Unknown', body.details || '');
+          if (body.receivedHeaders) {
+            console.log('[EL-OHIF] Headers received by proxy:', body.receivedHeaders);
+          }
+        } catch (e) {
+          /* ignore */
+        }
+      }
+    }
   },
   // segmentation: {
   //   segmentLabel: {

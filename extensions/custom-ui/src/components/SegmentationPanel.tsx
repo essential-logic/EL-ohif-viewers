@@ -5,6 +5,9 @@ import {
   AutoFixHigh as EraserIcon,
   Psychology as AiIcon,
   Add as PlusIcon,
+  LibraryAdd as LayersAddIcon,
+  Save as SaveIcon,
+  CloudDownload as DownloadIcon,
   Visibility as EyeIcon,
   VisibilityOff as EyeOffIcon,
   Lock as LockIcon,
@@ -18,9 +21,12 @@ import {
   RadioButtonChecked as SphereIcon,
 } from '@mui/icons-material';
 import PropTypes from 'prop-types';
+import { utilities as cstUtils } from '@cornerstonejs/tools';
 import { ServicesManager, CommandsManager } from '@ohif/core';
 import { GlassPanel } from './GlassPanel';
 import { Box, Typography, IconButton, Slider, ButtonBase, Tooltip, Stack } from '@mui/material';
+
+const segmentationUtils = cstUtils.segmentation;
 
 interface OHIFSegment {
   segmentIndex: number;
@@ -29,6 +35,16 @@ interface OHIFSegment {
   locked?: boolean;
   cachedStats?: Record<string, unknown>;
   active?: boolean;
+}
+
+interface OHIFSegmentation {
+  segmentationId: string;
+  label: string;
+  segments: Record<number, OHIFSegment>;
+  representation?: {
+    type: string;
+    [key: string]: unknown;
+  };
 }
 
 interface RenderingConfig {
@@ -40,6 +56,7 @@ interface SegmentationPanelProps {
   commandsManager: CommandsManager;
   activeTool?: string;
   setActiveTool?: (tool: string) => void;
+  studyInstanceUIDs?: string | string[];
 }
 
 export function SegmentationPanel({
@@ -48,11 +65,11 @@ export function SegmentationPanel({
   setActiveTool: setGlobalActiveTool,
 }: SegmentationPanelProps) {
   const { segmentationService, viewportGridService, toolGroupService } = servicesManager.services;
-  const [segmentations, setSegmentations] = useState([]);
-  const [activeViewportId, setActiveViewportId] = useState(null);
-  const [activeTool, setActiveTool] = useState(null);
-  const [activeStrategy, setActiveStrategy] = useState(null);
+  const [segmentations, setSegmentations] = useState<OHIFSegmentation[]>([]);
+  const [activeViewportId, setActiveViewportId] = useState<string | null>(null);
+  const [activeTool, setActiveTool] = useState<string | null>(null);
   const [globalOpacity, setGlobalOpacity] = useState(0.5);
+  const [brushSize, setBrushSizeState] = useState(10);
 
   // Sync with active viewport
   useEffect(() => {
@@ -80,10 +97,27 @@ export function SegmentationPanel({
       const reps = segmentationService.getSegmentationRepresentations(activeViewportId);
       const segs = reps.map(rep => {
         const segmentation = segmentationService.getSegmentation(rep.segmentationId);
+        const segments: Record<number, OHIFSegment> = { ...segmentation.segments };
+
+        // Enrich segments with visibility info from the service/cornerstone
+        Object.keys(segments).forEach(index => {
+          const segmentIndex = Number(index);
+          segments[segmentIndex] = {
+            ...(segments[segmentIndex] as any),
+            visible: segmentationService.getSegmentVisibility(
+              activeViewportId,
+              rep.segmentationId,
+              segmentIndex,
+              rep.type
+            ),
+          };
+        });
+
         return {
           ...segmentation,
+          segments,
           representation: rep,
-        };
+        } as unknown as OHIFSegmentation;
       });
       setSegmentations(segs);
 
@@ -107,11 +141,11 @@ export function SegmentationPanel({
         updateSegmentations
       ),
       segmentationService.subscribe(
-        segmentationService.EVENTS.SEGMENTATION_DATA_MODIFIED,
+        segmentationService.EVENTS.SEGMENTATION_REPRESENTATION_MODIFIED,
         updateSegmentations
       ),
       segmentationService.subscribe(
-        segmentationService.EVENTS.SEGMENTATION_REPRESENTATION_MODIFIED,
+        segmentationService.EVENTS.SEGMENTATION_ADDED,
         updateSegmentations
       ),
     ];
@@ -130,9 +164,11 @@ export function SegmentationPanel({
         const toolName = toolGroup.getActivePrimaryMouseButtonTool();
         setActiveTool(toolName);
 
-        // Get active strategy from options - more reliable in Cornerstone3D
-        const options = toolGroup.getToolOptions(toolName);
-        setActiveStrategy((options as { strategy?: string })?.strategy || null);
+        // Sync brush size if applicable
+        const currentBrushSize = segmentationUtils.getBrushSizeForToolGroup(toolGroup.id);
+        if (currentBrushSize) {
+          setBrushSizeState(currentBrushSize);
+        }
 
         // Update global state if available to sync toolbar
         if (setGlobalActiveTool && toolName) {
@@ -143,21 +179,24 @@ export function SegmentationPanel({
 
     updateActiveTool();
 
-    const unsubTools = (
-      toolGroupService as unknown as {
-        subscribe: (name: string, cb: () => void) => { unsubscribe: () => void };
-      }
-    ).subscribe(toolGroupService.EVENTS.TOOL_ACTIVATED, updateActiveTool);
+    // @ts-expect-error - toolGroupService.subscribe exists but types might be missing
+    const unsubTools = toolGroupService.subscribe(
+      toolGroupService.EVENTS.TOOL_ACTIVATED,
+      updateActiveTool
+    );
 
     return () => unsubTools.unsubscribe();
   }, [activeViewportId, toolGroupService, setGlobalActiveTool]);
 
   const activeSegmentation = useMemo(() => {
-    if (!activeViewportId) {
+    if (!activeViewportId || segmentations.length === 0) {
       return null;
     }
-    return segmentationService.getActiveSegmentation(activeViewportId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const internalActive = segmentationService.getActiveSegmentation(activeViewportId);
+    if (!internalActive) {
+      return null;
+    }
+    return segmentations.find(s => s.segmentationId === internalActive.segmentationId) || null;
   }, [activeViewportId, segmentationService, segmentations]);
 
   const activeSegmentIndex = useMemo(() => {
@@ -170,36 +209,32 @@ export function SegmentationPanel({
   }, [activeViewportId, activeSegmentation, segmentationService, segmentations]);
 
   const handleToolClick = (toolName: string, options: { strategy?: string } = {}) => {
-    const toolGroup = toolGroupService.getToolGroupForViewport(activeViewportId) as unknown as {
-      id: string;
-    } | null;
-    const toolGroupId = toolGroup?.id || 'default';
-    const toolGroupIds = ['default', 'mpr', 'SRToolGroup', 'volume3d', toolGroupId];
-
-    // Optimistic UI update
-    setActiveTool(toolName);
-    setActiveStrategy(options.strategy || null);
-    if (setGlobalActiveTool) {
-      setGlobalActiveTool(toolName);
-    }
-
-    try {
-      commandsManager.runCommand('setToolActiveToolbar', {
-        toolName,
-        itemId: toolName,
-        toolGroupIds,
-        ...options,
-      });
-    } catch (e) {
-      console.warn('SegmentationPanel: Failed to run setToolActiveToolbar', e);
-      toolGroupIds.forEach(id => {
+    const toolGroupIds = (toolGroupService as any).getToolGroupIds?.() || [];
+    
+    // Iterate through all tool groups to set active
+    toolGroupIds.forEach((id: string) => {
+      try {
         commandsManager.runCommand('setToolActive', {
           toolName,
           toolGroupId: id,
           ...options,
         });
-      });
+      } catch (err) {
+        // Ignore
+      }
+    });
+
+    if (setGlobalActiveTool) {
+      setGlobalActiveTool(toolName);
     }
+    setActiveTool(toolName);
+  };
+
+  const handleCreateSegmentation = () => {
+    commandsManager.runCommand('createLabelmapForViewport', {
+      viewportId: activeViewportId,
+      options: { createInitialSegment: true },
+    });
   };
 
   const handleAddSegment = () => {
@@ -208,8 +243,91 @@ export function SegmentationPanel({
         segmentationId: activeSegmentation.segmentationId,
       });
     } else {
-      commandsManager.runCommand('createLabelmapForViewport', {
-        viewportId: activeViewportId,
+      handleCreateSegmentation();
+    }
+  };
+
+  const handleLoadSegmentations = async () => {
+    const { displaySetService, segmentationService, uiNotificationService } = servicesManager.services;
+    // @ts-expect-error - services are populated dynamically
+    const activeDisplaySets = displaySetService.getActiveDisplaySets();
+    const segDisplaySets = activeDisplaySets.filter((ds: any) => ds.Modality === 'SEG');
+
+    if (segDisplaySets.length === 0) {
+      uiNotificationService.show({
+        title: 'No Segmentations',
+        message: 'No saved Segmentations found for this study.',
+        type: 'info',
+      });
+      return;
+    }
+
+    let loadCount = 0;
+    uiNotificationService.show({
+      title: 'Loading Segmentations',
+      message: `Fetching ${segDisplaySets.length} segmentation layer(s)...`,
+      type: 'info',
+    });
+
+    for (const ds of segDisplaySets) {
+      if (!ds.isLoaded) {
+        try {
+          await ds.load({ headers: {} });
+          
+          if (activeViewportId) {
+             await segmentationService.addSegmentationRepresentation(activeViewportId, {
+               segmentationId: ds.displaySetInstanceUID,
+             });
+          }
+          loadCount++;
+        } catch (error) {
+          console.error('[Load Segmentations] Failed to load display set', ds.displaySetInstanceUID, error);
+        }
+      }
+    }
+
+    if (loadCount > 0) {
+      uiNotificationService.show({
+        title: 'Segmentations Loaded',
+        message: `Successfully loaded ${loadCount} segmentation layer(s).`,
+        type: 'success',
+      });
+    } else {
+      uiNotificationService.show({
+        title: 'Segmentations Loaded',
+        message: 'All available segmentations are already loaded.',
+        type: 'info',
+      });
+    }
+  };
+
+  const handleSaveSegmentation = async () => {
+    if (!activeSegmentation) {
+      return;
+    }
+    const { uiNotificationService } = servicesManager.services;
+    try {
+      uiNotificationService.show({
+        title: 'Saving Segmentation',
+        message: 'Generating DICOM SEG and storing to Orthanc...',
+        type: 'info',
+      });
+      
+      await commandsManager.runCommand('storeSegmentation', {
+        segmentationId: activeSegmentation.segmentationId,
+      });
+      
+      uiNotificationService.show({
+        title: 'Success',
+        message: 'Segmentation saved successfully to Orthanc.',
+        type: 'success',
+      });
+    } catch (err) {
+      console.error('[SegmentationPanel] Save failed:', err);
+      uiNotificationService.show({
+        title: 'Save Failed',
+        message: err instanceof Error ? err.message : 'Unknown error during save',
+        type: 'error',
       });
     }
   };
@@ -224,6 +342,15 @@ export function SegmentationPanel({
     });
   };
 
+  const handleDeleteSegmentation = () => {
+    if (!activeSegmentation) {
+      return;
+    }
+    commandsManager.runCommand('deleteSegmentation', {
+      segmentationId: activeSegmentation.segmentationId,
+    });
+  };
+
   const toggleVisibility = (segmentIndex: number) => {
     if (!activeSegmentation) {
       return;
@@ -231,6 +358,7 @@ export function SegmentationPanel({
     commandsManager.runCommand('toggleSegmentVisibility', {
       segmentationId: activeSegmentation.segmentationId,
       segmentIndex,
+      type: activeSegmentation.representation?.type,
     });
   };
 
@@ -250,7 +378,13 @@ export function SegmentationPanel({
     commandsManager.runCommand('setFillAlpha', { value: alpha });
   };
 
-  const getSegmentColor = segmentIndex => {
+  const handleBrushSizeChange = (_: unknown, value: number | number[]) => {
+    const size = value as number;
+    setBrushSizeState(size);
+    commandsManager.runCommand('setBrushSize', { value: size });
+  };
+
+  const getSegmentColor = (segmentIndex: number) => {
     if (!activeViewportId || !activeSegmentation) {
       return '#3b82f6';
     }
@@ -263,72 +397,145 @@ export function SegmentationPanel({
   };
 
   const segments = useMemo(() => {
-    if (!activeSegmentation) {
+    if (!activeSegmentation?.segments) {
       return [];
     }
-    return Object.values(activeSegmentation.segments).filter(s => s !== undefined);
+    // Numerical sort for segment indices
+    return Object.values(activeSegmentation.segments)
+      .filter((s): s is OHIFSegment => s !== undefined)
+      .sort((a, b) => a.segmentIndex - b.segmentIndex);
   }, [activeSegmentation]);
 
   const toolGroups = [
     {
       title: 'Manual Tools',
       tools: [
-        { id: 'Brush', icon: BrushIcon, label: 'Paint' },
-        { id: 'Eraser', icon: EraserIcon, label: 'Erase', strategy: 'ERASE' },
-        { id: 'PaintFill', icon: FillIcon, label: 'Fill' },
-        { id: 'Sculptor', icon: SculptIcon, label: 'Sculpt' },
+        { id: 'Brush', actualToolName: 'CircularBrush', icon: BrushIcon, label: 'Paint' },
+        { id: 'Eraser', actualToolName: 'CircularEraser', icon: EraserIcon, label: 'Erase' },
+        { id: 'PaintFill', actualToolName: 'PaintFill', icon: FillIcon, label: 'Fill' },
+        { id: 'SculptorTool', actualToolName: 'SculptorTool', icon: SculptIcon, label: 'Sculpt' },
       ],
     },
     {
       title: 'Scissors',
       tools: [
-        { id: 'CircleScissors', icon: CircleIcon, label: 'Circle' },
-        { id: 'RectangleScissors', icon: RectIcon, label: 'Square' },
-        { id: 'SphereScissors', icon: SphereIcon, label: 'Sphere' },
+        { id: 'CircleScissors', actualToolName: 'CircleScissors', icon: CircleIcon, label: 'Circle' },
+        { id: 'RectangleScissors', actualToolName: 'RectangleScissors', icon: RectIcon, label: 'Square' },
+        { id: 'SphereScissors', actualToolName: 'SphereScissors', icon: SphereIcon, label: 'Sphere' },
       ],
     },
     {
       title: 'AI & Automation',
       tools: [
-        { id: 'MarkerLabelmap', icon: AiIcon, label: 'AI Label' },
-        { id: 'LabelmapSlicePropagation', icon: InterpolateIcon, label: 'Propagate' },
+        { id: 'MarkerLabelmap', actualToolName: 'MarkerLabelmap', icon: AiIcon, label: 'AI Label' },
+        { id: 'LabelmapSlicePropagation', actualToolName: 'LabelmapSlicePropagation', icon: InterpolateIcon, label: 'Propagate' },
       ],
     },
   ];
 
+  const isBrushActive = activeTool === 'CircularBrush' || activeTool === 'CircularEraser';
+
   return (
     <GlassPanel sx={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 2.5 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography
-          variant="subtitle2"
-          fontWeight={800}
-          color="text.primary"
-          sx={{ letterSpacing: 1.5, fontSize: '0.75rem' }}
-        >
+        <Typography variant="subtitle2" fontWeight={800} color="text.primary" sx={{ letterSpacing: 1.5, fontSize: '0.75rem' }}>
           SEGMENTATION
         </Typography>
-        <Tooltip title="Add New Segment">
-          <IconButton
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Tooltip title="Load Saved Segmentations">
+            <IconButton
+              size="small"
+              onClick={handleLoadSegmentations}
+              sx={{
+                color: 'info.main',
+                bgcolor: 'rgba(59, 130, 246, 0.1)',
+                '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.2)' },
+              }}
+            >
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          {activeSegmentation && (
+            <Tooltip title="Save Current Segmentation">
+              <IconButton
+                size="small"
+                onClick={handleSaveSegmentation}
+                sx={{
+                  color: 'primary.main',
+                  bgcolor: 'rgba(59, 130, 246, 0.1)',
+                  '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.2)' },
+                }}
+              >
+                <SaveIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          {activeSegmentation && (
+            <Tooltip title="Delete Current Segmentation Layer">
+              <IconButton
+                size="small"
+                onClick={handleDeleteSegmentation}
+                sx={{
+                  color: 'error.main',
+                  bgcolor: 'rgba(239, 68, 68, 0.1)',
+                  '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.2)' },
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip title="Add New Segmentation Layer">
+            <IconButton
+              size="small"
+              onClick={handleCreateSegmentation}
+              sx={{
+                color: 'success.main',
+                bgcolor: 'rgba(34, 197, 94, 0.1)',
+                '&:hover': { bgcolor: 'rgba(34, 197, 94, 0.2)' },
+              }}
+            >
+              <LayersAddIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Box>
+
+      {/* Brush Size Slider (Conditional) */}
+      {isBrushActive && (
+        <Box sx={{ px: 1, py: 1.5, bgcolor: 'rgba(255, 255, 255, 0.03)', borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.65rem' }}>
+              Brush Size
+            </Typography>
+            <Typography variant="caption" color="primary.main" fontWeight={800} sx={{ fontSize: '0.65rem' }}>
+              {brushSize}px
+            </Typography>
+          </Box>
+          <Slider
             size="small"
-            onClick={handleAddSegment}
+            value={brushSize}
+            min={1}
+            max={100}
+            onChange={handleBrushSizeChange}
             sx={{
               color: 'primary.main',
-              bgcolor: 'rgba(59, 130, 246, 0.1)',
-              '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.2)' },
+              height: 4,
+              '& .MuiSlider-thumb': {
+                width: 10,
+                height: 10,
+                transition: '0.3s cubic-bezier(.47,1.64,.41,.8)',
+                '&:before': { display: 'none' },
+              },
             }}
-          >
-            <PlusIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Box>
+          />
+        </Box>
+      )}
 
       {/* Tools Section */}
       <Box sx={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
         {toolGroups.map((group, gIdx) => (
-          <Box
-            key={gIdx}
-            sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
-          >
+          <Box key={gIdx} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Typography
               variant="caption"
               sx={{
@@ -341,41 +548,14 @@ export function SegmentationPanel({
             >
               {group.title}
             </Typography>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: 1,
-              }}
-            >
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
               {group.tools.map(tool => {
-                const isEraser = tool.id === 'Eraser';
-                const actualToolName = isEraser ? 'Brush' : tool.id;
-
-                // Distinguish between Paint (Brush) and Eraser (Brush + ERASE strategy)
-                let isActive = activeTool === actualToolName;
-                if (isActive && actualToolName === 'Brush') {
-                  if (isEraser) {
-                    isActive = activeStrategy === 'ERASE';
-                  } else {
-                    isActive = activeStrategy !== 'ERASE';
-                  }
-                }
-
+                const isActive = activeTool === tool.actualToolName;
                 return (
-                  <Tooltip
-                    key={tool.id}
-                    title={tool.label}
-                    placement="top"
-                  >
+                  <Tooltip key={tool.id} title={tool.label} placement="top">
                     <ButtonBase
                       component={motion.button}
-                      onClick={() =>
-                        handleToolClick(
-                          actualToolName,
-                          tool.strategy ? { strategy: tool.strategy } : {}
-                        )
-                      }
+                      onClick={() => handleToolClick(tool.actualToolName)}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       sx={{
@@ -386,23 +566,17 @@ export function SegmentationPanel({
                         p: 1,
                         borderRadius: 1.5,
                         aspectRatio: '1/1',
-                        bgcolor: isActive
-                          ? 'rgba(59, 130, 246, 0.15)'
-                          : 'rgba(255, 255, 255, 0.02)',
+                        bgcolor: isActive ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.02)',
                         border: '1px solid',
                         borderColor: isActive ? 'primary.main' : 'rgba(255, 255, 255, 0.05)',
                         transition: 'all 0.2s',
                         '&:hover': {
-                          bgcolor: isActive
-                            ? 'rgba(59, 130, 246, 0.2)'
-                            : 'rgba(255, 255, 255, 0.06)',
+                          bgcolor: isActive ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.06)',
                           borderColor: 'primary.main',
                         },
                       }}
                     >
-                      <tool.icon
-                        sx={{ fontSize: 18, color: isActive ? 'primary.main' : 'text.secondary' }}
-                      />
+                      <tool.icon sx={{ fontSize: 18, color: isActive ? 'primary.main' : 'text.secondary' }} />
                     </ButtonBase>
                   </Tooltip>
                 );
@@ -414,37 +588,40 @@ export function SegmentationPanel({
 
       {/* Segments List Section */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Typography
-          variant="caption"
-          sx={{
-            color: 'text.secondary',
-            textTransform: 'uppercase',
-            fontWeight: 800,
-            mb: 1.5,
-            fontSize: '0.6rem',
-            opacity: 0.6,
-          }}
-        >
-          Segments {segments.length > 0 && `(${segments.length})`}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              textTransform: 'uppercase',
+              fontWeight: 800,
+              fontSize: '0.6rem',
+              opacity: 0.6,
+            }}
+          >
+            Segments {segments.length > 0 && `(${segments.length})`}
+          </Typography>
+          <Tooltip title="Add New Segment to Current Layer">
+            <IconButton
+              size="small"
+              onClick={handleAddSegment}
+              sx={{
+                p: 0.5,
+                color: 'primary.main',
+                bgcolor: 'rgba(59, 130, 246, 0.05)',
+                '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.15)' },
+              }}
+            >
+              <PlusIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
 
-        <Box
-          sx={{
-            flex: 1,
-            overflowY: 'auto',
-            pr: 0.5,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 0.75,
-          }}
-        >
+        <Box sx={{ flex: 1, overflowY: 'auto', pr: 0.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
           <AnimatePresence mode="popLayout">
             {segments.length === 0 ? (
               <Box sx={{ py: 4, textAlign: 'center', opacity: 0.4 }}>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                >
+                <Typography variant="caption" color="text.secondary">
                   No segments created
                 </Typography>
               </Box>
@@ -452,16 +629,9 @@ export function SegmentationPanel({
               segments.map(segment => {
                 const isActive = activeSegmentIndex === segment.segmentIndex;
                 const color = getSegmentColor(segment.segmentIndex);
-                const ohifSegment = segment as OHIFSegment;
 
                 return (
-                  <motion.div
-                    key={segment.segmentIndex}
-                    initial={{ opacity: 0, x: -5 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    layout
-                  >
+                  <motion.div key={segment.segmentIndex} initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.95 }} layout>
                     <Box
                       onClick={() => {
                         if (activeSegmentation) {
@@ -478,9 +648,7 @@ export function SegmentationPanel({
                         p: 1.25,
                         borderRadius: 1.5,
                         cursor: 'pointer',
-                        bgcolor: isActive
-                          ? 'rgba(59, 130, 246, 0.08)'
-                          : 'rgba(255, 255, 255, 0.02)',
+                        bgcolor: isActive ? 'rgba(59, 130, 246, 0.08)' : 'rgba(255, 255, 255, 0.02)',
                         border: '1px solid',
                         borderColor: isActive ? 'primary.main' : 'transparent',
                         transition: 'all 0.2s',
@@ -513,47 +681,34 @@ export function SegmentationPanel({
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {segment.label}
+                        {segment.segmentIndex}. {segment.label}
                       </Typography>
 
-                      <Stack
-                        direction="row"
-                        spacing={0}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <Tooltip title={ohifSegment.visible !== false ? 'Hide' : 'Show'}>
+                      <Stack direction="row" spacing={0} onClick={e => e.stopPropagation()}>
+                        <Tooltip title={segment.visible !== false ? 'Hide' : 'Show'}>
                           <IconButton
                             size="small"
                             onClick={() => toggleVisibility(segment.segmentIndex)}
                             sx={{
                               p: 0.5,
-                              color:
-                                ohifSegment.visible !== false ? 'primary.main' : 'text.disabled',
+                              color: segment.visible !== false ? 'primary.main' : 'text.disabled',
                               opacity: 0.8,
                             }}
                           >
-                            {ohifSegment.visible !== false ? (
-                              <EyeIcon sx={{ fontSize: 16 }} />
-                            ) : (
-                              <EyeOffIcon sx={{ fontSize: 16 }} />
-                            )}
+                            {segment.visible !== false ? <EyeIcon sx={{ fontSize: 16 }} /> : <EyeOffIcon sx={{ fontSize: 16 }} />}
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title={ohifSegment.locked ? 'Unlock' : 'Lock'}>
+                        <Tooltip title={segment.locked ? 'Unlock' : 'Lock'}>
                           <IconButton
                             size="small"
                             onClick={() => toggleLock(segment.segmentIndex)}
                             sx={{
                               p: 0.5,
-                              color: ohifSegment.locked ? 'warning.main' : 'text.disabled',
+                              color: segment.locked ? 'warning.main' : 'text.disabled',
                               opacity: 0.8,
                             }}
                           >
-                            {ohifSegment.locked ? (
-                              <LockIcon sx={{ fontSize: 16 }} />
-                            ) : (
-                              <UnlockIcon sx={{ fontSize: 16 }} />
-                            )}
+                            {segment.locked ? <LockIcon sx={{ fontSize: 16 }} /> : <UnlockIcon sx={{ fontSize: 16 }} />}
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Delete">
@@ -583,20 +738,10 @@ export function SegmentationPanel({
       {/* Global Controls Section */}
       <Box sx={{ mt: 'auto', pt: 2, borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            fontWeight={700}
-            sx={{ fontSize: '0.65rem' }}
-          >
+          <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.65rem' }}>
             Global Opacity
           </Typography>
-          <Typography
-            variant="caption"
-            color="primary.main"
-            fontWeight={800}
-            sx={{ fontSize: '0.65rem' }}
-          >
+          <Typography variant="caption" color="primary.main" fontWeight={800} sx={{ fontSize: '0.65rem' }}>
             {Math.round(globalOpacity * 100)}%
           </Typography>
         </Box>

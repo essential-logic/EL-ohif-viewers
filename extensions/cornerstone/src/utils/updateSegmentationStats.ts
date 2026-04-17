@@ -42,11 +42,31 @@ export async function updateSegmentationStats({
     return null;
   }
 
-  const stats = await cornerstoneTools.utilities.segmentation.getStatistics({
-    segmentationId,
-    segmentIndices,
-    mode: 'individual',
-  });
+  let stats;
+
+  // Temporarily suppress console.error to prevent Webpack Dev Server's error overlay 
+  // from crashing the UI when the Cornerstone WebWorker throws on unloaded scalarData.
+  const originalConsoleError = console.error;
+  console.error = (...args) => {
+    if (args[0] && typeof args[0] === 'string' && args[0].includes('calculateSegmentsStatisticsStack')) {
+      return; // Suppress this specific cornerstone worker error
+    }
+    originalConsoleError.apply(console, args);
+  };
+
+  try {
+    stats = await cornerstoneTools.utilities.segmentation.getStatistics({
+      segmentationId,
+      segmentIndices,
+      mode: 'individual',
+    });
+  } catch (error) {
+    console.debug('[OHIF] Skipping segmentation stats computation: Base volume scalarData might not be fully loaded.', error);
+    return null;
+  } finally {
+    // Restore console.error immediately after the call
+    console.error = originalConsoleError;
+  }
 
   if (!stats) {
     return null;

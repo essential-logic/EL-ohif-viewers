@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+  useCallback,
+  useRef,
+} from 'react';
 import {
   Dialog,
   DialogContent,
@@ -75,6 +82,64 @@ const ManagedDialog = forwardRef<ManagedDialogRef, ManagedDialogProps>(
     const [currentPosition, setCurrentPosition] = useState(defaultPosition);
     const [contentNode, setContentNode] = useState<HTMLElement | null>(null);
 
+    const isDragging = useRef(false);
+    const dragOffset = useRef({ x: 0, y: 0 });
+
+    const handlePointerDown = useCallback(
+      (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!isDraggable) {
+          return;
+        }
+
+        const target = e.target as HTMLElement;
+        if (!target.closest('.drag-handle') && !target.classList.contains('drag-handle')) {
+          return;
+        }
+
+        isDragging.current = true;
+
+        if (contentNode) {
+          const rect = contentNode.getBoundingClientRect();
+          dragOffset.current = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          };
+
+          if (!currentPosition) {
+            setCurrentPosition({ x: rect.left, y: rect.top });
+          }
+        }
+      },
+      [isDraggable, contentNode, currentPosition]
+    );
+
+    useEffect(() => {
+      const handlePointerMove = (e: PointerEvent) => {
+        if (!isDragging.current) {
+          return;
+        }
+        const newX = e.clientX - dragOffset.current.x;
+        const newY = e.clientY - dragOffset.current.y;
+        
+        // Optional: constrain to window bounds if desired, but typical behavior allows partial drag out
+        setCurrentPosition({ x: newX, y: newY });
+      };
+
+      const handlePointerUp = () => {
+        isDragging.current = false;
+      };
+
+      if (isDraggable) {
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+      }
+
+      return () => {
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerUp);
+      };
+    }, [isDraggable]);
+
     useImperativeHandle(
       ref,
       () => ({
@@ -82,7 +147,7 @@ const ManagedDialog = forwardRef<ManagedDialogRef, ManagedDialogProps>(
           _updatePosition(contentNode, position, setCurrentPosition);
         },
       }),
-      []
+      [contentNode]
     );
 
     useEffect(() => {
@@ -115,13 +180,14 @@ const ManagedDialog = forwardRef<ManagedDialogRef, ManagedDialogProps>(
             onClose(id);
           }
         }}
-        isDraggable={isDraggable}
+        isDraggable={false} // We handle dragging manually to override default Dialog translate behaviors
         shouldCloseOnEsc={shouldCloseOnEsc}
         shouldCloseOnOverlayClick={shouldCloseOnOverlayClick}
-        showOverlay={showOverlay}
+        showOverlay={isDraggable ? false : showOverlay}
       >
         <DialogContent
           ref={contentRef}
+          onPointerDown={handlePointerDown}
           className={cn(
             unstyled ? 'border-none p-0 shadow-none' : '',
             containerClassName,

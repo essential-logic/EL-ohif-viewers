@@ -82,8 +82,14 @@ const customLayout = {
   },
 };
 
-function layoutTemplate() {
-  return structuredCloneWithFunctions(this.layoutInstance);
+function layoutTemplate({ studyInstanceUIDs }) {
+  return {
+    ...structuredCloneWithFunctions(this.layoutInstance),
+    props: {
+      ...this.layoutInstance.props,
+      studyInstanceUIDs,
+    },
+  };
 }
 
 const customRoute = {

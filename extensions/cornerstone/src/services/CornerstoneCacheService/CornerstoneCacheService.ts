@@ -162,7 +162,8 @@ class CornerstoneCacheService {
     for (const overlayDisplaySet of overlayDisplaySets) {
       if (overlayDisplaySet.load && overlayDisplaySet.load instanceof Function) {
         const { userAuthenticationService } = this.servicesManager.services;
-        const headers = userAuthenticationService.getAuthorizationHeader();
+        const skipAuth = dataSource.getConfig?.()?.skipAuth;
+        const headers = skipAuth ? {} : userAuthenticationService.getAuthorizationHeader();
         try {
           await overlayDisplaySet.load({ headers });
         } catch (e) {
@@ -183,7 +184,8 @@ class CornerstoneCacheService {
 
       if (displaySet.load && displaySet.load instanceof Function) {
         const { userAuthenticationService } = this.servicesManager.services;
-        const headers = userAuthenticationService.getAuthorizationHeader();
+        const skipAuth = dataSource.getConfig?.()?.skipAuth;
+        const headers = skipAuth ? {} : userAuthenticationService.getAuthorizationHeader();
         try {
           await displaySet.load({ headers });
         } catch (e) {
@@ -242,7 +244,8 @@ class CornerstoneCacheService {
 
       if (displaySet.load && displaySet.load instanceof Function) {
         const { userAuthenticationService } = this.servicesManager.services;
-        const headers = userAuthenticationService.getAuthorizationHeader();
+        const skipAuth = dataSource.getConfig?.()?.skipAuth;
+        const headers = skipAuth ? {} : userAuthenticationService.getAuthorizationHeader();
 
         try {
           await displaySet.load({ headers });

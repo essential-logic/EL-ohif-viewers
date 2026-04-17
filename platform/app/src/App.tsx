@@ -34,6 +34,7 @@ import { AppConfigProvider } from '@state';
 import createRoutes from './routes';
 import appInit from './appInit.js';
 import OpenIdConnectRoutes from './utils/OpenIdConnectRoutes';
+import { AuthProvider } from '@ohif/extension-custom-ui';
 import { ShepherdJourneyProvider } from 'react-shepherd';
 import './App.css';
 
@@ -72,11 +73,12 @@ function App({
   const [init, setInit] = useState(null);
   useEffect(() => {
     const run = async () => {
+      console.log('[App] Initializing OHIF App. Router basename:', config.routerBasename);
       appInit(config, defaultExtensions, defaultModes).then(setInit).catch(console.error);
     };
 
     run();
-  }, []);
+  }, [config, defaultExtensions, defaultModes]);
 
   if (!init) {
     return null;
@@ -168,15 +170,17 @@ function App({
   }
 
   return (
-    <CombinedProviders>
-      <BrowserRouter
-        basename={routerBasename}
-        future={routerFutureFlags}
-      >
-        {authRoutes}
-        {appRoutes}
-      </BrowserRouter>
-    </CombinedProviders>
+    <AuthProvider userAuthenticationService={userAuthenticationService}>
+      <CombinedProviders>
+        <BrowserRouter
+          basename={routerBasename}
+          future={routerFutureFlags}
+        >
+          {authRoutes}
+          {appRoutes}
+        </BrowserRouter>
+      </CombinedProviders>
+    </AuthProvider>
   );
 }
 

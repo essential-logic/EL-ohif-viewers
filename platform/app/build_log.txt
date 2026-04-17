@@ -1,0 +1,32 @@
+yarn run v1.22.22
+$ cross-env NODE_ENV=development webpack serve --config .webpack/webpack.pwa.js
+Browserslist: browsers data (caniuse-lite) is 10 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+<i> [webpack-dev-server] [HPM] Proxy created: /dicom-web,/wado  -> http://76.13.99.8:8042
+<i> [webpack-dev-server] [HPM] Proxy created: /dicomweb  -> http://localhost:5000
+D:\Essential-Logic\EL-ohif-viewers\node_modules\webpack-dev-server\lib\Server.js:2638
+        throw error;
+        ^
+
+Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at Server.listen (node:net:2102:7)
+    at READ_WRITE (D:\Essential-Logic\EL-ohif-viewers\node_modules\webpack-dev-server\lib\Server.js:3460:23)
+    at new Promise (<anonymous>)
+    at Server.start (D:\Essential-Logic\EL-ohif-viewers\node_modules\webpack-dev-server\lib\Server.js:3458:7)
+    at async Command.<anonymous> (D:\Essential-Logic\EL-ohif-viewers\node_modules\@webpack-cli\serve\lib\index.js:158:21)
+    at async Command.parseAsync (D:\Essential-Logic\EL-ohif-viewers\node_modules\commander\lib\command.js:923:5)
+    at async Command.<anonymous> (D:\Essential-Logic\EL-ohif-viewers\node_modules\webpack-cli\lib\webpack-cli.js:1356:13)
+    at async Command.parseAsync (D:\Essential-Logic\EL-ohif-viewers\node_modules\commander\lib\command.js:923:5) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3000
+}
+
+Node.js v24.13.0
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.
