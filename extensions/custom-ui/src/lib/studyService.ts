@@ -103,7 +103,7 @@ async function extractMetadata(file: File) {
  * then registers each study with the current user in Supabase.
  *
  * @param files - Array of .dcm File objects
- * @param orthancRoot - The DICOMweb root URL (e.g. "http://76.13.99.8:8042/dicom-web")
+ * @param orthancRoot - The DICOMweb root URL (e.g. "http://YOUR_VPS_IP:8042/dicom-web")
  * @param metadataOverride - Optional patient name / study description override
  * @returns Object with uploaded study UIDs and any errors
  */

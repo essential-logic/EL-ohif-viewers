@@ -5,7 +5,7 @@ version: '3.8'
 # Image: psda2/el-ohif-viewer:latest
 #
 # Data Sources configured:
-#   1. 🏥 Orthanc (DEFAULT) — http://76.13.99.8:8042  [Upload enabled]
+#   1. 🏥 Orthanc (DEFAULT) — http://${VPS_IP}:8042  [Upload enabled]
 #   2. ☁️  AWS CloudFront   — Public OHIF demo studies [Read-only]
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -18,7 +18,7 @@ services:
     environment:
       - PORT=8080
       - PUBLIC_URL=/
-      - ORTHANC_ROOT_HOST=76.13.99.8
+      - ORTHANC_ROOT_HOST=${VPS_IP}
       - ORTHANC_HOST=https://xyuxiachrjpcrmiephqa.supabase.co/functions/v1/orthanc-proxy
       - |
         APP_CONFIG=window.config={

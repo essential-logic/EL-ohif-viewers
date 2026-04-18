@@ -1,7 +1,8 @@
 #!/bin/bash
 # Deployment script for EL-OHIF Viewer
 
-REMOTE_HOST="76.13.99.8"
+# Remote VPS IP Address (can be overridden by VPS_IP env var)
+REMOTE_HOST="${VPS_IP:-YOUR_VPS_IP}"
 REMOTE_USER="root"
 REMOTE_DIR="/opt/el-ohif-viewer"
 

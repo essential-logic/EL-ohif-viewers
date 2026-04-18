@@ -4,12 +4,20 @@
 # Docker Image: psda2/el-ohif-viewer:latest
 #
 # Data Sources:
-#   1. 🏥 Orthanc (DEFAULT) — http://76.13.99.8:8042  [Upload enabled]
+#   1. 🏥 Orthanc (DEFAULT) — http://${VPS_IP}:8042  [Upload enabled]
 #   2. ☁️  AWS CloudFront   — Public OHIF demo studies [Read-only]
 #
 # Usage:
 #   chmod +x vps-setup.sh && ./vps-setup.sh
 # =============================================================================
+# ── 0. Environment Setup ────────────────────────────────────────────────────
+# Load .env file if it exists
+if [ -f .env ]; then
+  export $(echo $(grep -v '^#' .env | xargs) | envsubst)
+fi
+
+# Use VPS_IP from environment or fallback to detected IP later
+VPS_IP="${VPS_IP:-YOUR_VPS_IP}"
 
 set -e
 
@@ -76,8 +84,8 @@ services:
     environment:
       - PORT=8080
       - PUBLIC_URL=/
-      - ORTHANC_ROOT_HOST=76.13.99.8
-      - ORTHANC_HOST=http://76.13.99.8:8042
+      - ORTHANC_REMOTE_HOST=${VPS_IP:-YOUR_VPS_IP}
+      - ORTHANC_HOST=http://${VPS_IP}:8042
       - APP_CONFIG=window.config={"routerBasename":"/","showStudyList":true,"extensions":[],"modes":[],"showWarningMessageForCrossOrigin":false,"showLoadingIndicator":true,"strictZSpacingForVolumeViewport":true,"maxNumberOfWebWorkers":3,"groupEnabledModesFirst":true,"allowMultiSelectExport":true,"studyPrefetcher":{"enabled":true,"displaySetsCount":2,"maxNumPrefetchRequests":10,"order":"closest"},"defaultDataSourceName":"orthanc","dataSources":[{"namespace":"@ohif/extension-default.dataSourcesModule.dicomweb","sourceName":"orthanc","configuration":{"friendlyName":"My PACS (Upload Studies Here)","name":"orthanc","wadoUriRoot":"/wado","qidoRoot":"/dicom-web","wadoRoot":"/dicom-web","qidoSupportsIncludeField":true,"supportsReject":true,"supportsStow":true,"dicomUploadEnabled":true,"imageRendering":"wadors","thumbnailRendering":"wadors","enableStudyLazyLoad":true,"supportsFuzzyMatching":true,"supportsWildcard":true,"omitQuotationForMultipartRequest":true,"bulkDataURI":{"enabled":true,"relativeResolution":"studies"}}},{"namespace":"@ohif/extension-default.dataSourcesModule.dicomweb","sourceName":"ohif","configuration":{"friendlyName":"☁️ OHIF Public Demo Studies (AWS)","name":"aws","wadoUriRoot":"/aws-dicomweb","qidoRoot":"/aws-dicomweb","wadoRoot":"/aws-dicomweb","qidoSupportsIncludeField":false,"imageRendering":"wadors","thumbnailRendering":"wadors","enableStudyLazyLoad":true,"supportsFuzzyMatching":true,"supportsWildcard":false,"dicomUploadEnabled":false,"staticWado":true,"singlepart":"bulkdata,video","bulkDataURI":{"enabled":true,"relativeResolution":"studies"},"omitQuotationForMultipartRequest":true}},{"namespace":"@ohif/extension-default.dataSourcesModule.dicomjson","sourceName":"dicomjson","configuration":{"friendlyName":"DICOM JSON","name":"json"}},{"namespace":"@ohif/extension-default.dataSourcesModule.dicomlocal","sourceName":"dicomlocal","configuration":{"friendlyName":"Local DICOM Files"}}]}
     restart: unless-stopped
     healthcheck:
@@ -125,14 +133,16 @@ echo ""
 docker compose ps
 
 # ── Summary ──────────────────────────────────────────────────────────────────
-VPS_IP=$(curl -s ifconfig.me 2>/dev/null || echo "YOUR_VPS_IP")
-
+# Only detect IP if not already set
+if [ -z "$VPS_IP" ]; then
+  VPS_IP=$(curl -s ifconfig.me 2>/dev/null || echo "YOUR_VPS_IP")
+fi
 echo ""
 echo "============================================================"
 echo " ✅  SETUP COMPLETE!"
 echo ""
-echo " OHIF Viewer:         http://$VPS_IP:8080"
-echo " Orthanc UI:          http://76.13.99.8:8042/ui/app/#/"
+echo " OHIF Viewer:         http://${VPS_IP}:8080"
+echo " Orthanc UI:          http://${VPS_IP}:8042/ui/app/#/"
 echo ""
 echo " Data Sources available in Viewer:"
 echo "   🏥 My PACS (DEFAULT) — Upload studies via Orthanc"
