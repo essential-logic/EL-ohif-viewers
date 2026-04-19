@@ -10,8 +10,10 @@ import {
   IconButton,
   Button,
   Typography,
+  Fab,
 } from '@mui/material';
-import { Close as CloseIcon, CloudDownload as CloudDownloadIcon } from '@mui/icons-material';
+import { Close as CloseIcon, CloudDownload as CloudDownloadIcon, SmartToy as BotIcon } from '@mui/icons-material';
+import { AICopilot } from './components/AICopilot';
 import { theme } from './Theme';
 import { GlassLayout } from './components/GlassLayout';
 import { GlassToolbar } from './components/GlassToolbar';
@@ -69,6 +71,7 @@ export default function CustomLayout({
   const [isCinePlaying, setIsCinePlaying] = useState(false);
   const [currentFrame, setCurrentFrame] = useState(1);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
 
   // ─── Annotation Persistence ─────────────────────────────────────────────
   const { pendingAnnotationsCount, loadPendingAnnotations } = useAnnotationPersistence(
@@ -118,6 +121,7 @@ export default function CustomLayout({
             viewMode={viewMode}
             setViewMode={setViewMode}
             onMenuClick={() => setIsDrawerOpen(true)}
+            onHelpClick={() => setIsCopilotOpen(true)}
             isMobile={isMobile}
           />
         }
@@ -311,6 +315,34 @@ export default function CustomLayout({
             servicesManager={servicesManager}
             viewportComponents={resolvedViewportComponents}
             commandsManager={commandsManager}
+          />
+
+          {/* AI Copilot Toggle FAB */}
+          <Fab
+            color="primary"
+            onClick={() => setIsCopilotOpen(prev => !prev)}
+            sx={{
+              position: 'absolute',
+              bottom: isMobile ? 80 : 32,
+              right: 32,
+              zIndex: 9998,
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+              background: 'linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%)',
+              '&:hover': {
+                transform: 'scale(1.05)',
+                background: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)',
+              },
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            {isCopilotOpen ? <CloseIcon /> : <BotIcon />}
+          </Fab>
+
+          {/* AI Copilot Component */}
+          <AICopilot
+            open={isCopilotOpen}
+            onClose={() => setIsCopilotOpen(false)}
+            studyInstanceUIDs={studyInstanceUIDs}
           />
         </Box>
       </GlassLayout>

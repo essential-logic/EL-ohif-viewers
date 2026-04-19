@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const ORTHANC_URL = Deno.env.get('ORTHANC_URL') || 'http://76.13.99.8:8042';
+const ORTHANC_URL = Deno.env.get('ORTHANC_URL') || 'http://YOUR_VPS_IP:8042';
 const ORTHANC_AUTH = Deno.env.get('ORTHANC_AUTH') || 'admin:admin';
 
 const corsHeaders = {
@@ -395,7 +395,7 @@ Deno.serve(async req => {
         const proxyUrl = `${url.origin}${url.pathname.split('/orthanc-proxy')[0]}/orthanc-proxy`;
 
         // 1. Rewrite absolute Orthanc URLs to point back through the proxy
-        const orthancIp = "76.13.99.8";
+        const orthancIp = "YOUR_VPS_IP";
         let jsonString = JSON.stringify(json);
         
         // Match both standard and escaped (JSON-style) Orthanc URLs

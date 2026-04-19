@@ -22,10 +22,12 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@google/genai": "^1.50.1",
     "@mui/icons-material": "^6.4.5",
     "@mui/material": "^6.4.5",
     "@supabase/supabase-js": "^2.49.1",
     "framer-motion": "^12.4.7",
+    "marked-react": "^4.0.0",
     "prop-types": "^15.8.1"
   }
 }

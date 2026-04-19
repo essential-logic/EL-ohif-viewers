@@ -38,6 +38,7 @@ import {
   LinearProgress,
   TextField,
   Divider,
+  Fab,
 } from '@mui/material';
 import { theme } from '../Theme';
 
@@ -49,7 +50,8 @@ import { OpenRepositories } from './studylist/OpenRepositories';
 import { NewStudyModal } from './studylist/NewStudyModal';
 import { uploadDICOMToOrthanc, deleteStudy, getUserStorageUsage } from '../lib/studyService';
 import { supabase } from '../lib/supabase';
-import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
+import { CloudUpload as CloudUploadIcon, Add as AddIcon, SmartToy as BotIcon } from '@mui/icons-material';
+import { AICopilot } from './AICopilot';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -470,7 +472,10 @@ export function StudyListPage({
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Storage usage tracking
+  // Storage usage tracking
   const [storageUsedBytes, setStorageUsedBytes] = useState<number | null>(null);
+
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
 
   useEffect(() => {
     // When viewing private studies (which re-loads on upload/delete), fetch quota details
@@ -1254,6 +1259,29 @@ export function StudyListPage({
           isUploading={isUploading}
         />
 
+        {/* Mobile FAB for Uploads */}
+        {isMobile && activeNav === 'patients' && (
+          <Fab
+            color="primary"
+            onClick={() => setIsUploadModalOpen(true)}
+            sx={{
+              position: 'fixed',
+              bottom: 80, // Above BottomNav
+              right: 16,
+              zIndex: 1000,
+              boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              '&:hover': {
+                transform: 'scale(1.05)',
+                background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
+              },
+              transition: 'all 0.2s',
+            }}
+          >
+            <AddIcon />
+          </Fab>
+        )}
+
         {/* Delete Confirmation Dialog */}
         <AnimatePresence>
           {studyToDelete && (
@@ -1350,6 +1378,29 @@ export function StudyListPage({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Global AI Copilot */}
+        <Fab
+          color="primary"
+          onClick={() => setIsCopilotOpen(prev => !prev)}
+          sx={{
+            position: 'fixed',
+            bottom: isMobile ? 150 : 32,
+            right: isMobile ? 16 : 32,
+            zIndex: 9998,
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+            background: 'linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%)',
+            '&:hover': {
+              transform: 'scale(1.05)',
+              background: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)',
+            },
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
+          {isCopilotOpen ? <CloseIcon /> : <BotIcon />}
+        </Fab>
+
+        <AICopilot open={isCopilotOpen} onClose={() => setIsCopilotOpen(false)} studyInstanceUIDs={[]} />
       </Box>
     </ThemeProvider>
   );

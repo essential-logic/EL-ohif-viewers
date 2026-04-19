@@ -4,7 +4,7 @@
  *
  * Data Sources:
  *  1. 🏥 Orthanc (DEFAULT) — User-uploaded studies via VPS Orthanc DICOMweb
- *     Endpoint: http://76.13.99.8:8042/dicom-web
+ *     Endpoint: http://YOUR_VPS_IP:8042/dicom-web
  *     Upload enabled: YES
  *
  *  2. ☁️ AWS CloudFront — OHIF public demo studies (read-only, no upload)

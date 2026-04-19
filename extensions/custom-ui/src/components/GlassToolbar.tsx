@@ -11,6 +11,7 @@ import {
   Edit as AnnotationIcon,
   Menu as MenuIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 
 import { ServicesManager } from '@ohif/core';
 
@@ -23,6 +24,7 @@ interface GlassToolbarProps {
   viewMode: string;
   setViewMode: (mode: string) => void;
   onMenuClick?: () => void;
+  onHelpClick?: () => void;
   isMobile?: boolean;
 }
 
@@ -35,8 +37,11 @@ export function GlassToolbar({
   viewMode,
   setViewMode,
   onMenuClick,
+  onHelpClick,
   isMobile,
 }: GlassToolbarProps) {
+  const navigate = useNavigate();
+
   return (
     <Box
       sx={{
@@ -214,7 +219,7 @@ export function GlassToolbar({
         </Box>
       </Box>
 
-      {/* Mode Switcher - Cleaned up to remove double icons */}
+      {/* Mode Switcher */}
       <Box
         sx={{
           display: 'flex',
@@ -224,6 +229,10 @@ export function GlassToolbar({
           border: '1px solid rgba(255,255,255,0.03)',
           mx: 'auto', // Center the switcher
           gap: 0.5,
+          overflowX: isMobile ? 'auto' : 'visible',
+          WebkitOverflowScrolling: 'touch',
+          '&::-webkit-scrollbar': { display: 'none' },
+          maxWidth: isMobile ? '55vw' : 'none',
         }}
       >
         {[
@@ -273,6 +282,8 @@ export function GlassToolbar({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ml: 'auto' }}>
         <IconButton
           size="small"
+          onClick={() => navigate('/')}
+          title="Return to Dashboard"
           sx={{
             color: 'rgba(255,255,255,0.4)',
             '&:hover': { color: 'text.primary', bgcolor: 'rgba(255,255,255,0.05)' },
@@ -282,6 +293,8 @@ export function GlassToolbar({
         </IconButton>
         <IconButton
           size="small"
+          onClick={onHelpClick}
+          title="AI Assistant"
           sx={{
             color: 'rgba(255,255,255,0.4)',
             '&:hover': { color: 'text.primary', bgcolor: 'rgba(255,255,255,0.05)' },
@@ -290,6 +303,8 @@ export function GlassToolbar({
           <HelpIcon sx={{ fontSize: 18 }} />
         </IconButton>
         <Box
+          onClick={() => navigate('/')}
+          title="Profile"
           sx={{
             width: 26,
             height: 26,
@@ -299,7 +314,7 @@ export function GlassToolbar({
             border: '1px solid rgba(255,255,255,0.1)',
             boxShadow: '0 0 10px rgba(59, 130, 246, 0.2)',
             cursor: 'pointer',
-            '&:hover': { transform: 'scale(1.05)', transition: 'transform 0.2s' },
+            '&:hover': { transform: 'scale(1.05)', transition: 'transform 0.2s', boxShadow: '0 0 15px rgba(59, 130, 246, 0.4)' },
           }}
         />
       </Box>

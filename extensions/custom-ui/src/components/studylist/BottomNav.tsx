@@ -5,6 +5,7 @@ import {
   MonitorHeart as ActivityIcon,
   Settings as SettingsIcon,
   CloudQueue as RepoIcon,
+  Storage as StorageIcon,
 } from '@mui/icons-material';
 
 interface BottomNavProps {
@@ -14,6 +15,7 @@ interface BottomNavProps {
 
 const NAV_ITEMS = [
   { id: 'patients', label: 'Studies', icon: <ActivityIcon sx={{ fontSize: 20 }} /> },
+  { id: 'aws-public', label: 'AWS', icon: <StorageIcon sx={{ fontSize: 20 }} /> },
   { id: 'repositories', label: 'Repos', icon: <RepoIcon sx={{ fontSize: 20 }} /> },
   { id: 'settings', label: 'Settings', icon: <SettingsIcon sx={{ fontSize: 20 }} /> },
 ];

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useMediaQuery, useTheme } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import medicalHero from '../assets/medical_hero.png';
 
@@ -130,6 +131,9 @@ function Field({
 
 // ─── Main LoginPage ───────────────────────────────────────────────────────────
 export function LoginPage() {
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
+  
   const { handleSignIn, handleSignUp } = useAuth();
 
   const [mode, setMode] = useState<Mode>('signin');
@@ -207,6 +211,7 @@ export function LoginPage() {
         minHeight: '100vh',
         width: '100%',
         display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
         background: '#020617', // Deeper modern slate
         fontFamily: "'Inter', sans-serif",
         color: '#f8fafc',
@@ -215,12 +220,13 @@ export function LoginPage() {
       {/* Left Section (Sign In Form) */}
       <div
         style={{
-          flex: '1 1 50%',
+          flex: isMobile ? 'none' : '1 1 50%',
+          minHeight: isMobile ? '100vh' : 'auto',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '80px 40px',
+          padding: isMobile ? '40px 20px' : '80px 40px',
           overflowY: 'auto',
           position: 'relative',
           zIndex: 10,
@@ -249,7 +255,7 @@ export function LoginPage() {
               animate="visible"
               exit="exit"
             >
-              <h1 style={{ fontSize: 44, fontWeight: 800, color: '#f8fafc', marginBottom: 12, letterSpacing: '-1.5px', lineHeight: 1.1 }}>
+              <h1 style={{ fontSize: isMobile ? 32 : 44, fontWeight: 800, color: '#f8fafc', marginBottom: 12, letterSpacing: '-1.5px', lineHeight: 1.1 }}>
                 {isSignUp ? 'Join the future of radiology.' : 'Welcome back.'}
               </h1>
               <p style={{ fontSize: 16, color: '#94a3b8', marginBottom: 44, lineHeight: 1.5, fontWeight: 400 }}>
@@ -358,110 +364,111 @@ export function LoginPage() {
       </div>
 
       {/* Right Section (Hero Presentation) */}
-      <div
-        style={{
-          flex: '1 1 50%',
-          background: 'linear-gradient(135deg, #09090b 0%, #0f172a 100%)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 80,
-          color: 'white',
-          position: 'relative',
-          overflow: 'hidden',
-          borderLeft: '1px solid rgba(255, 255, 255, 0.05)',
-        }}
-      >
-        {/* Animated Background Elements */}
-        {/* Abstract Grid Line Pattern */}
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px)', backgroundSize: '60px 60px', opacity: 0.5, transform: 'perspective(1000px) rotateX(60deg) translateY(-100px) scale(2.5)', transformOrigin: 'top center', zIndex: 0 }} />
-        
-        {/* Decorative Orbs */}
-        <motion.div animate={{ y: [0, -20, 0], opacity: [0.5, 0.8, 0.5] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }} style={{ position: 'absolute', top: '20%', right: '15%', width: 250, height: 250, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, rgba(99,102,241,0) 70%)', filter: 'blur(40px)', zIndex: 1 }} />
-        <motion.div animate={{ x: [0, 30, 0], opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }} style={{ position: 'absolute', bottom: '15%', left: '10%', width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, rgba(56,189,248,0.15) 0%, rgba(56,189,248,0) 70%)', filter: 'blur(50px)', zIndex: 1 }} />
-
-        {/* Support Link */}
-        <div style={{ position: 'absolute', top: 40, right: 40, display: 'flex', alignItems: 'center', gap: 8, color: '#94a3b8', cursor: 'pointer', zIndex: 10, transition: 'color 0.2s', padding: '8px 16px', borderRadius: 20, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }} onMouseEnter={e => e.currentTarget.style.color = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Get Support</span>
-        </div>
-
-        {/* Floating Glassmorphism Hero Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 30, rotateX: 5 }}
-          animate={{ opacity: 1, y: 0, rotateX: 0 }}
-          transition={{ duration: 1, type: 'spring', bounce: 0.4 }}
+      {!isMobile && (
+        <div
           style={{
-            background: 'rgba(30, 41, 59, 0.4)',
-            backdropFilter: 'blur(20px)',
-            borderRadius: 24,
-            padding: 8,
-            width: '100%',
-            maxWidth: 500,
-            marginBottom: 60,
-            boxShadow: '0 30px 60px -12px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            zIndex: 10,
+            flex: '1 1 50%',
+            background: 'linear-gradient(135deg, #09090b 0%, #0f172a 100%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 80,
+            color: 'white',
+            position: 'relative',
+            overflow: 'hidden',
+            borderLeft: '1px solid rgba(255, 255, 255, 0.05)',
           }}
         >
-          <div style={{ background: 'rgba(15, 23, 42, 0.6)', borderRadius: 18, p: 2 }}>
-            <div style={{ width: '100%', height: 260, borderRadius: 16, overflow: 'hidden', position: 'relative' }}>
-              <img src={medicalHero} alt="Medical Radiology Dashboard" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              
-              {/* Inner Image Gradient overlays */}
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(15,23,42,0) 0%, rgba(15,23,42,0.9) 100%)' }} />
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(99,102,241,0.2) 0%, transparent 100%)' }} />
-              
-              <div style={{ position: 'absolute', bottom: 20, left: 24, right: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-                  <div>
-                    <h3 style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', marginBottom: 6, textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>Diagnostic Precision</h3>
-                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                       <span style={{ display: 'inline-flex', width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 12px #10b981' }} />
-                       <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>Real-time 3D Sync</span>
-                     </div>
+          {/* Animated Background Elements */}
+          {/* Abstract Grid Line Pattern */}
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px)', backgroundSize: '60px 60px', opacity: 0.5, transform: 'perspective(1000px) rotateX(60deg) translateY(-100px) scale(2.5)', transformOrigin: 'top center', zIndex: 0 }} />
+          
+          {/* Decorative Orbs */}
+          <motion.div animate={{ y: [0, -20, 0], opacity: [0.5, 0.8, 0.5] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }} style={{ position: 'absolute', top: '20%', right: '15%', width: 250, height: 250, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, rgba(99,102,241,0) 70%)', filter: 'blur(40px)', zIndex: 1 }} />
+          <motion.div animate={{ x: [0, 30, 0], opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }} style={{ position: 'absolute', bottom: '15%', left: '10%', width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, rgba(56,189,248,0.15) 0%, rgba(56,189,248,0) 70%)', filter: 'blur(50px)', zIndex: 1 }} />
+
+          {/* Support Link */}
+          <div style={{ position: 'absolute', top: 40, right: 40, display: 'flex', alignItems: 'center', gap: 8, color: '#94a3b8', cursor: 'pointer', zIndex: 10, transition: 'color 0.2s', padding: '8px 16px', borderRadius: 20, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }} onMouseEnter={e => e.currentTarget.style.color = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Get Support</span>
+          </div>
+
+          {/* Floating Glassmorphism Hero Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 30, rotateX: 5 }}
+            animate={{ opacity: 1, y: 0, rotateX: 0 }}
+            transition={{ duration: 1, type: 'spring', bounce: 0.4 }}
+            style={{
+              background: 'rgba(30, 41, 59, 0.4)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 24,
+              padding: 8,
+              width: '100%',
+              maxWidth: 500,
+              marginBottom: 60,
+              boxShadow: '0 30px 60px -12px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              zIndex: 10,
+            }}
+          >
+            <div style={{ background: 'rgba(15, 23, 42, 0.6)', borderRadius: 18, p: 2 }}>
+              <div style={{ width: '100%', height: 260, borderRadius: 16, overflow: 'hidden', position: 'relative' }}>
+                <img src={medicalHero} alt="Medical Radiology Dashboard" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                
+                {/* Inner Image Gradient overlays */}
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(15,23,42,0) 0%, rgba(15,23,42,0.9) 100%)' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(99,102,241,0.2) 0%, transparent 100%)' }} />
+                
+                <div style={{ position: 'absolute', bottom: 20, left: 24, right: 24 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                    <div>
+                      <h3 style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', marginBottom: 6, textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>Diagnostic Precision</h3>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                         <span style={{ display: 'inline-flex', width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 12px #10b981' }} />
+                         <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>Real-time 3D Sync</span>
+                       </div>
+                    </div>
+                    
+                    {/* Floating badge */}
+                    <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)', padding: '6px 12px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc' }}>Secure</span>
+                    </motion.div>
                   </div>
-                  
-                  {/* Floating badge */}
-                  <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)', padding: '6px 12px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc' }}>Secure</span>
-                  </motion.div>
                 </div>
               </div>
-            </div>
 
-             <div style={{ padding: '24px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-               <div style={{ flex: 1, paddingRight: 20 }}>
-                 <p style={{ fontSize: 14, color: '#94a3b8', lineHeight: 1.6 }}>Accelerate your clinical workflow with our advanced suite of segmentation and rendering tools.</p>
+               <div style={{ padding: '24px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                 <div style={{ flex: 1, paddingRight: 20 }}>
+                   <p style={{ fontSize: 14, color: '#94a3b8', lineHeight: 1.6 }}>Accelerate your clinical workflow with our advanced suite of segmentation and rendering tools.</p>
+                 </div>
+                 <button style={{ flexShrink: 0, padding: '10px 20px', background: 'rgba(255,255,255,0.05)', color: '#f8fafc', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 8 }} onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }} onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}>
+                   Explore Features <IconArrowRight />
+                 </button>
                </div>
-               <button style={{ flexShrink: 0, padding: '10px 20px', background: 'rgba(255,255,255,0.05)', color: '#f8fafc', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 8 }} onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }} onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}>
-                 Explore Features <IconArrowRight />
-               </button>
+            </div>
+          </motion.div>
+
+          {/* System Trust Indicators */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 32, zIndex: 10 }}>
+             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+               <span style={{ fontSize: 32, fontWeight: 900, color: '#f8fafc', background: 'linear-gradient(to right, #f8fafc, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>99.9%</span>
+               <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Uptime SLA</span>
+             </div>
+             <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.1)' }} />
+             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+               <span style={{ fontSize: 32, fontWeight: 900, color: '#f8fafc', background: 'linear-gradient(to right, #f8fafc, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>SOC 2</span>
+               <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Certified</span>
+             </div>
+             <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.1)' }} />
+             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+               <span style={{ fontSize: 32, fontWeight: 900, color: '#f8fafc', background: 'linear-gradient(to right, #f8fafc, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>E2E</span>
+               <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Encrypted</span>
              </div>
           </div>
-        </motion.div>
-
-        {/* System Trust Indicators */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 32, zIndex: 10 }}>
-           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-             <span style={{ fontSize: 32, fontWeight: 900, color: '#f8fafc', background: 'linear-gradient(to right, #f8fafc, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>99.9%</span>
-             <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Uptime SLA</span>
-           </div>
-           <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.1)' }} />
-           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-             <span style={{ fontSize: 32, fontWeight: 900, color: '#f8fafc', background: 'linear-gradient(to right, #f8fafc, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>SOC 2</span>
-             <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Certified</span>
-           </div>
-           <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.1)' }} />
-           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-             <span style={{ fontSize: 32, fontWeight: 900, color: '#f8fafc', background: 'linear-gradient(to right, #f8fafc, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>E2E</span>
-             <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Encrypted</span>
-           </div>
         </div>
-
-      </div>
+      )}
     </div>
   );
 }
