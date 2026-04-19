@@ -7,7 +7,7 @@ import {
   ChevronRight as ChevronRightIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { Box, Typography, Card, CardActionArea, Chip, IconButton } from '@mui/material';
+import { Box, Typography, Card, CardActionArea, IconButton } from '@mui/material';
 
 export interface Study {
   studyDescription?: string;
@@ -244,7 +244,7 @@ export const StudyCard = memo(function StudyCard({
           >
             <ChevronRightIcon />
           </IconButton>
-          {onDelete && !isMobile && (
+          {onDelete && (
             <IconButton
               size="small"
               onClick={e => {
@@ -267,4 +267,3 @@ export const StudyCard = memo(function StudyCard({
     </motion.div>
   );
 });
-
