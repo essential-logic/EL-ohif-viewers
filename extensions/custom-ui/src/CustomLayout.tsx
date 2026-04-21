@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 // Trivial change to trigger linter refresh
 import {
   ThemeProvider,
@@ -26,6 +26,8 @@ import { ImageAdjustmentPanel } from './components/ImageAdjustmentPanel';
 import { MobileDock } from './components/MobileDock';
 import { StudyBrowser } from './components/StudyBrowser';
 import { useAnnotationPersistence } from './hooks/useAnnotationPersistence';
+import { useDatabasePersistence } from './hooks/useDatabasePersistence';
+import { useAuth } from './context/AuthContext';
 import { ServicesManager, CommandsManager, HotkeysManager, ExtensionManager } from '@ohif/core';
 
 interface ViewportConfig {
@@ -73,6 +75,21 @@ export default function CustomLayout({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
 
+  const { customizationService } = servicesManager.services;
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user?.user_metadata?.preferred_unit) {
+      console.log('[CustomLayout] Setting measurement unit to:', user.user_metadata.preferred_unit);
+      customizationService.setCustomizations({
+        measurementUnit: {
+          id: 'measurementUnit',
+          value: user.user_metadata.preferred_unit,
+        },
+      }, 'global' as any);
+    }
+  }, [user, customizationService]);
+
   // ─── Annotation Persistence ─────────────────────────────────────────────
   const { pendingAnnotationsCount, loadPendingAnnotations } = useAnnotationPersistence(
     servicesManager,
@@ -80,6 +97,9 @@ export default function CustomLayout({
     extensionManager,
     studyInstanceUIDs
   );
+
+  // ─── Database Annotation Persistence ────────────────────────────────────
+  useDatabasePersistence(servicesManager, extensionManager, studyInstanceUIDs);
 
   // RESOLUTION LOGIC: Convert viewport namespaces (strings) into actual components
   const getViewportComponentData = (viewportComponent: ViewportConfig) => {
@@ -157,6 +177,7 @@ export default function CustomLayout({
             <AnnotationPanel
               servicesManager={servicesManager}
               commandsManager={commandsManager}
+              extensionManager={extensionManager}
               activeTool={activeTool}
               setActiveTool={setActiveTool}
               studyInstanceUIDs={studyInstanceUIDs}
@@ -282,6 +303,7 @@ export default function CustomLayout({
                   <AnnotationPanel
                     servicesManager={servicesManager as any}
                     commandsManager={commandsManager}
+                    extensionManager={extensionManager}
                     activeTool={activeTool}
                     setActiveTool={setActiveTool}
                     studyInstanceUIDs={studyInstanceUIDs}

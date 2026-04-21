@@ -104,8 +104,7 @@ function initDefaultToolGroup(extensionManager, toolGroupService, commandsManage
       { toolName: toolNames.LabelmapSlicePropagation },
     ],
     enabled: [
-      { toolName: toolNames.ImageOverlayViewer },
-      { toolName: toolNames.ReferenceLines },
+      { toolName: toolNames.ImageOverlayViewer }, { toolName: toolNames.ReferenceLines }
     ],
     disabled: [
       {

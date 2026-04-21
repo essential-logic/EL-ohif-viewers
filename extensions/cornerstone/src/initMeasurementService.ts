@@ -398,6 +398,9 @@ const connectMeasurementServiceToTools = ({
 
       const { uid, label, isLocked, isVisible } = measurement;
       const sourceAnnotation = annotation.state.getAnnotation(uid);
+      if (!sourceAnnotation) {
+        return;
+      }
       const { data, metadata } = sourceAnnotation;
 
       if (!data) {
@@ -449,8 +452,12 @@ const connectMeasurementServiceToTools = ({
 
       if (measurement?.metadata?.referencedImageId) {
         imageId = measurement.metadata.referencedImageId;
-        frameNumber = getSOPInstanceAttributes(measurement.metadata.referencedImageId).frameNumber;
-      } else if (instance) {
+        frameNumber = getSOPInstanceAttributes(
+          measurement.metadata.referencedImageId,
+          displaySetService,
+          measurement
+        ).frameNumber;
+      } else if (instance && dataSource) {
         imageId = dataSource.getImageIdsForInstance({ instance });
       }
 
@@ -481,11 +488,15 @@ const connectMeasurementServiceToTools = ({
            * Don't remove this destructuring of data here.
            * This is used to pass annotation specific data forward e.g. contour
            */
-          ...(data.annotation.data || {}),
-          text: data.annotation.data.text,
-          handles: { ...data.annotation.data.handles },
-          cachedStats: { ...data.annotation.data.cachedStats },
-          label: data.annotation.data.label,
+          ...(data?.annotation?.data || {}),
+          text: data?.annotation?.data?.text,
+          handles: {
+            points: measurement.points,
+            textBox: measurement.textBox,
+            ...(data?.annotation?.data?.handles || {}),
+          },
+          cachedStats: { ...(data?.annotation?.data?.cachedStats || {}) },
+          label: data?.annotation?.data?.label || measurement.label,
           frameNumber,
         },
       };

@@ -1,4 +1,10 @@
 import { supabase } from './supabase';
+import { 
+  saveAnnotationsToDb, 
+  loadAnnotationsFromDb,
+  saveSegmentationToDb,
+  loadSegmentationsFromDb
+} from './annotationService';
 
 // ─── Fetch user's allowed study UIDs ───────────────────────────────────────
 
@@ -245,58 +251,52 @@ export async function deleteStudy(studyInstanceUid: string, orthancRoot: string)
 // ─── Annotation Persistence ────────────────────────────────────────────────
 
 /**
- * Saves a list of measurements/annotations to Supabase for a specific study.
+ * Saves a list of measurements/annotations to the database for a specific study.
  */
 export async function saveAnnotations(studyInstanceUid: string, measurements: any[]) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { error: new Error('Not authenticated') };
+  try {
+    const response = await saveAnnotationsToDb(studyInstanceUid, measurements);
+    return { error: null, response };
+  } catch (error) {
+    console.error('[studyService] Failed to save annotations to database:', error);
+    return { error };
   }
-
-  const { error } = await supabase.from('study_annotations').upsert(
-    {
-      user_id: user.id,
-      study_instance_uid: studyInstanceUid,
-      data: measurements,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id,study_instance_uid' }
-  );
-
-  if (error) {
-    console.error('[studyService] Failed to save annotations:', error);
-    throw new Error(error.message);
-  }
-
-  return { error };
 }
 
 /**
- * Loads saved measurements/annotations from Supabase for a specific study.
+ * Loads saved measurements/annotations from the database for a specific study.
  */
 export async function loadAnnotations(studyInstanceUid: string): Promise<any[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    console.warn('[studyService] No user session for loading annotations');
+  try {
+    return await loadAnnotationsFromDb(studyInstanceUid);
+  } catch (error) {
+    console.error('[studyService] Failed to load annotations from database:', error);
     return [];
   }
+}
 
-  const { data, error } = await supabase
-    .from('study_annotations')
-    .select('data')
-    .eq('user_id', user.id)
-    .eq('study_instance_uid', studyInstanceUid)
-    .maybeSingle();
+// ─── Segmentation Persistence ─────────────────────────────────────────────
 
-  if (error) {
-    console.error('[studyService] Failed to load annotations:', error.message);
+/**
+ * Saves segmentation state/metadata to the database.
+ */
+export async function saveSegmentationMetadata(studyInstanceUid: string, segmentationId: string, data: any) {
+  try {
+    return await saveSegmentationToDb(studyInstanceUid, segmentationId, data);
+  } catch (error) {
+    console.error('[studyService] Failed to save segmentation metadata:', error);
+    throw error;
   }
+}
 
-  return data?.data || [];
+/**
+ * Loads all segmentation states for a study.
+ */
+export async function loadSegmentationMetadata(studyInstanceUid: string): Promise<any[]> {
+  try {
+    return await loadSegmentationsFromDb(studyInstanceUid);
+  } catch (error) {
+    console.error('[studyService] Failed to load segmentation metadata:', error);
+    return [];
+  }
 }

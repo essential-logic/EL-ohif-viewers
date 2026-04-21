@@ -53,7 +53,7 @@ const Bidirectional = {
 
     const mappedAnnotations = getMappedAnnotations(annotation, displaySetService);
 
-    const displayText = getDisplayText(mappedAnnotations, displaySet);
+    const displayText = getDisplayText(mappedAnnotations, displaySet, customizationService);
     const getReport = () =>
       _getReport(mappedAnnotations, points, FrameOfReferenceUID, customizationService);
 
@@ -158,7 +158,7 @@ function _getReport(mappedAnnotations, points, FrameOfReferenceUID, customizatio
   };
 }
 
-function getDisplayText(mappedAnnotations, displaySet) {
+function getDisplayText(mappedAnnotations, displaySet, customizationService) {
   const displayText = {
     primary: [],
     secondary: [],
@@ -183,8 +183,19 @@ function getDisplayText(mappedAnnotations, displaySet) {
   const instanceText = InstanceNumber ? ` I: ${InstanceNumber}` : '';
   const frameText = displaySet.isMultiFrame ? ` F: ${frameNumber}` : '';
 
-  displayText.primary.push(`L: ${roundedLength} ${getDisplayUnit(unit)}`);
-  displayText.primary.push(`W: ${roundedWidth} ${getDisplayUnit(unit)}`);
+  const preferredUnit = customizationService?.getCustomization('measurementUnit')?.value;
+  let displayUnit = unit;
+
+  const isPx = (u) => u && (u.toLowerCase() === 'px' || u.toLowerCase() === 'pixels' || u.toLowerCase() === 'pixel');
+
+  if (preferredUnit === 'mm' && isPx(unit)) {
+    displayUnit = 'mm';
+  } else if (preferredUnit === 'px' && !isPx(unit) && unit !== 'HU' && unit !== 'SUV' && unit !== 'count') {
+    displayUnit = 'px';
+  }
+
+  displayText.primary.push(`L: ${roundedLength} ${getDisplayUnit(displayUnit)}`);
+  displayText.primary.push(`W: ${roundedWidth} ${getDisplayUnit(displayUnit)}`);
   displayText.secondary.push(`S: ${SeriesNumber}${instanceText}${frameText}`);
 
   return displayText;

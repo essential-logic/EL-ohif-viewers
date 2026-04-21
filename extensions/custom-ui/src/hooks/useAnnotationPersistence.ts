@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { ServicesManager, CommandsManager, ExtensionManager } from '@ohif/core';
+import { filterValidMeasurements } from '../lib/annotationValidation';
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -37,7 +38,9 @@ export function useAnnotationPersistence(
 
     saveTimeout.current = setTimeout(async () => {
       try {
-        const measurements = measurementService.getMeasurements();
+        const rawMeasurements = measurementService.getMeasurements();
+        const measurements = filterValidMeasurements(rawMeasurements);
+        
         if (measurements.length === 0) {
            return;
         }

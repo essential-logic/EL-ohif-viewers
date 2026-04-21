@@ -117,6 +117,37 @@ export default function initCornerstoneTools(configuration = {}) {
   addTool(SculptorTool);
   addTool(SplineContourSegmentationTool);
   addTool(LabelMapEditWithContourTool);
+
+  // --- Defensive Rendering Layer ---
+  /**
+   * Wraps a tool's renderAnnotation method in a try-catch block to prevent
+   * crashes during interaction (e.g., drawing/dragging) if data is temporarily malformed.
+   */
+  const wrapToolRender = ToolClass => {
+    const originalRender = ToolClass.prototype.renderAnnotation;
+    if (typeof originalRender === 'function') {
+      ToolClass.prototype.renderAnnotation = function (enabledElement, svgDrawingHelper) {
+        try {
+          return originalRender.call(this, enabledElement, svgDrawingHelper);
+        } catch (e) {
+          console.error(`[DefensiveRendering] ${ToolClass.toolName} render error:`, e);
+          return false;
+        }
+      };
+    }
+  };
+
+  // Wrap critical annotation tools
+  [
+    CircleROITool,
+    ArrowAnnotateTool,
+    LengthTool,
+    RectangleROITool,
+    EllipticalROITool,
+    BidirectionalTool,
+  ].forEach(wrapToolRender);
+  // ---------------------------------
+
   // Modify annotation tools to use dashed lines on SR
   const annotationStyle = {
     textBoxFontSize: '15px',
