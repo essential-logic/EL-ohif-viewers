@@ -54,7 +54,7 @@ const CircleROI = {
 
     const mappedAnnotations = getMappedAnnotations(annotation, displaySetService);
 
-    const displayText = getDisplayText(mappedAnnotations, displaySet);
+    const displayText = getDisplayText(mappedAnnotations, displaySet, customizationService);
     const getReport = () =>
       _getReport(mappedAnnotations, points, FrameOfReferenceUID, customizationService);
 
@@ -178,7 +178,7 @@ function _getReport(mappedAnnotations, points, FrameOfReferenceUID, customizatio
   };
 }
 
-function getDisplayText(mappedAnnotations, displaySet) {
+function getDisplayText(mappedAnnotations, displaySet, customizationService) {
   const displayText = {
     primary: [],
     secondary: [],
@@ -204,7 +204,18 @@ function getDisplayText(mappedAnnotations, displaySet) {
   // Area sometimes becomes undefined if `preventHandleOutsideImage` is off.
   if (!isNaN(area)) {
     const roundedArea = utils.roundNumber(area || 0, 2);
-    displayText.primary.push(`${roundedArea} ${getDisplayUnit(areaUnit)}`);
+    const preferredUnit = customizationService?.getCustomization('measurementUnit')?.value;
+    let displayAreaUnit = areaUnit;
+
+    const isPx2 = (u) => u && (u.toLowerCase() === 'px2' || u.toLowerCase() === 'pixels2' || u.toLowerCase() === 'pixel2');
+
+    if (preferredUnit === 'mm' && isPx2(areaUnit)) {
+      displayAreaUnit = 'mm2';
+    } else if (preferredUnit === 'px' && !isPx2(areaUnit)) {
+      displayAreaUnit = 'px2';
+    }
+
+    displayText.primary.push(`${roundedArea} ${getDisplayUnit(displayAreaUnit)}`);
   }
 
   // Todo: we need a better UI for displaying all these information

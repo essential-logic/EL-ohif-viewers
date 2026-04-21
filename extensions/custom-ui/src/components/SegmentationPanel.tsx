@@ -25,6 +25,7 @@ import { utilities as cstUtils } from '@cornerstonejs/tools';
 import { ServicesManager, CommandsManager } from '@ohif/core';
 import { GlassPanel } from './GlassPanel';
 import { Box, Typography, IconButton, Slider, ButtonBase, Tooltip, Stack } from '@mui/material';
+import { saveSegmentationMetadata, loadSegmentationMetadata } from '../lib/studyService';
 
 const segmentationUtils = cstUtils.segmentation;
 
@@ -63,6 +64,7 @@ export function SegmentationPanel({
   servicesManager,
   commandsManager,
   setActiveTool: setGlobalActiveTool,
+  studyInstanceUIDs,
 }: SegmentationPanelProps) {
   const { segmentationService, viewportGridService, toolGroupService } = servicesManager.services;
   const [segmentations, setSegmentations] = useState<OHIFSegmentation[]>([]);
@@ -152,6 +154,39 @@ export function SegmentationPanel({
 
     return () => subscriptions.forEach(s => s.unsubscribe());
   }, [segmentationService, activeViewportId]);
+
+  // Load segmentation metadata from the database on mount
+  useEffect(() => {
+    const fetchSegmentationMetadata = async () => {
+      const studyInstanceUid = Array.isArray(studyInstanceUIDs) ? studyInstanceUIDs[0] : studyInstanceUIDs;
+      if (!studyInstanceUid || !activeViewportId) {
+        return;
+      }
+
+      const savedMetas = await loadSegmentationMetadata(studyInstanceUid);
+      if (savedMetas && savedMetas.length > 0) {
+        const { displaySetService, segmentationService } = servicesManager.services;
+        
+        for (const meta of savedMetas) {
+          const { segmentation_id: segId } = meta;
+          const displaySet = (displaySetService as any).getDisplaySetByUID(segId);
+          
+          if (displaySet && !displaySet.isLoaded) {
+            try {
+              await displaySet.load?.({ headers: {} });
+              await segmentationService.addSegmentationRepresentation(activeViewportId, {
+                segmentationId: segId,
+              });
+            } catch (err) {
+              console.warn('[SegmentationPanel] Failed to auto-load segmentation:', segId, err);
+            }
+          }
+        }
+      }
+    };
+
+    fetchSegmentationMetadata();
+  }, [studyInstanceUIDs, activeViewportId, servicesManager]);
 
   // Track active tool and UI state
   useEffect(() => {
@@ -249,7 +284,6 @@ export function SegmentationPanel({
 
   const handleLoadSegmentations = async () => {
     const { displaySetService, segmentationService, uiNotificationService } = servicesManager.services;
-    // @ts-expect-error - services are populated dynamically
     const activeDisplaySets = displaySetService.getActiveDisplaySets();
     const segDisplaySets = activeDisplaySets.filter((ds: any) => ds.Modality === 'SEG');
 
@@ -305,6 +339,11 @@ export function SegmentationPanel({
     if (!activeSegmentation) {
       return;
     }
+    const studyInstanceUid = Array.isArray(studyInstanceUIDs) ? studyInstanceUIDs[0] : studyInstanceUIDs;
+    if (!studyInstanceUid) {
+      console.warn('[SegmentationPanel] No studyInstanceUid available for saving metadata');
+    }
+
     const { uiNotificationService } = servicesManager.services;
     try {
       uiNotificationService.show({
@@ -316,6 +355,19 @@ export function SegmentationPanel({
       await commandsManager.runCommand('storeSegmentation', {
         segmentationId: activeSegmentation.segmentationId,
       });
+
+      // Save metadata to the database as well
+      if (studyInstanceUid) {
+        await saveSegmentationMetadata(
+          studyInstanceUid,
+          activeSegmentation.segmentationId,
+          {
+            label: activeSegmentation.label,
+            segments: activeSegmentation.segments,
+            updatedAt: new Date().toISOString(),
+          }
+        );
+      }
       
       uiNotificationService.show({
         title: 'Success',

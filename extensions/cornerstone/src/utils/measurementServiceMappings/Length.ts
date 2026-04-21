@@ -64,7 +64,7 @@ const Length = {
 
     const mappedAnnotations = getMappedAnnotations(annotation, displaySetService);
 
-    const displayText = getDisplayText(mappedAnnotations, displaySet);
+    const displayText = getDisplayText(mappedAnnotations, displaySet, customizationService);
     const getReport = () =>
       _getReport(mappedAnnotations, points, FrameOfReferenceUID, customizationService);
 
@@ -170,7 +170,7 @@ function _getReport(mappedAnnotations, points, FrameOfReferenceUID, customizatio
   };
 }
 
-function getDisplayText(mappedAnnotations, displaySet) {
+function getDisplayText(mappedAnnotations, displaySet, customizationService) {
   const displayText = {
     primary: [],
     secondary: [],
@@ -196,8 +196,21 @@ function getDisplayText(mappedAnnotations, displaySet) {
   if (length === null || length === undefined) {
     return displayText;
   }
-  const roundedLength = utils.roundNumber(length, 2);
-  displayText.primary.push(`${roundedLength} ${unit}`);
+
+  const preferredUnit = customizationService?.getCustomization('measurementUnit')?.value;
+  let displayUnit = unit;
+  const displayLength = length;
+
+  const isPx = (u) => u && (u.toLowerCase() === 'px' || u.toLowerCase() === 'pixels' || u.toLowerCase() === 'pixel');
+
+  if (preferredUnit === 'mm' && isPx(unit)) {
+    displayUnit = 'mm';
+  } else if (preferredUnit === 'px' && !isPx(unit) && unit !== 'HU' && unit !== 'SUV' && unit !== 'count') {
+    displayUnit = 'px';
+  }
+
+  const roundedLength = utils.roundNumber(displayLength, 2);
+  displayText.primary.push(`${roundedLength} ${displayUnit}`);
   displayText.secondary.push(`S: ${SeriesNumber}${instanceText}${frameText}`);
 
   return displayText;

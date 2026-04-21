@@ -123,7 +123,7 @@ export function ToolGroup({ tools, activeTool, onSelect, direction = 'right' }: 
           <motion.div
             animate={{ 
               scale: isActive ? 1.3 : 1,
-              filter: isActive ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))' : 'none'
+              filter: isActive ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))' : 'drop-shadow(0 0 0px rgba(59, 130, 246, 0))'
             }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             style={{ display: 'flex' }}

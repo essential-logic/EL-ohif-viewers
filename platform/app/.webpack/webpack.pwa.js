@@ -193,22 +193,15 @@ module.exports = (env, argv) => {
       devMiddleware: {
         // Only write the small critical files to disk — these must be physically on disk
         // because they are loaded via <script src> or fetch() outside webpack's module graph.
-        // Skip the massive static ort/ (136 MB) and dicom-microscopy/ (19.7 MB) assets
-        // that are already present on disk from the first run and never change between
-        // compiles. This drops post-compile disk-write time from ~minutes to ~seconds.
+        // We avoid writing large JS/CSS bundles to disk to save on I/O overhead on Windows.
         writeToDisk: filePath => {
           // Always write: html, app config, service worker init, manifest, small assets
           if (/\.(html|json|png|svg|txt)$/.test(filePath)) return true;
           if (/app-config\.js$/.test(filePath)) return true;
           if (/init-service-worker\.js$/.test(filePath)) return true;
           if (/(google|_redirects|_headers|serve\.json)/.test(filePath)) return true;
-          // Write JS/CSS bundles so HMR updates are served correctly
-          if (
-            /\.(js|css|map)$/.test(filePath) &&
-            !/\/(ort|dicom-microscopy-viewer)\//.test(filePath)
-          )
-            return true;
-          // Skip the massive static model/microscopy assets (already on disk)
+          // Skip general JS/CSS bundles from disk write as they are served from memory by dev-server
+          // This significantly reduces I/O pressure on Windows.
           return false;
         },
       },

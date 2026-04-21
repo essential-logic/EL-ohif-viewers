@@ -12,11 +12,13 @@ import {
   Edit as EditIcon,
   CloudDone as SavedIcon,
   CloudUpload as SaveIcon,
+  CloudDownload as CloudDownloadIcon,
 } from '@mui/icons-material';
 import PropTypes from 'prop-types';
 import { ServicesManager, CommandsManager } from '@ohif/core';
 import { GlassPanel } from './GlassPanel';
-import { saveAnnotations } from '../lib/studyService';
+import { saveAnnotations, loadAnnotations } from '../lib/studyService';
+import { validateAnnotation } from '../lib/annotationValidation';
 import {
   Box,
   Typography,
@@ -31,6 +33,7 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  CircularProgress,
 } from '@mui/material';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -49,6 +52,7 @@ interface Measurement {
 interface AnnotationPanelProps {
   servicesManager: ServicesManager;
   commandsManager: CommandsManager;
+  extensionManager: ExtensionManager;
   activeTool?: string;
   setActiveTool?: (tool: string) => void;
   studyInstanceUIDs?: string | string[];
@@ -86,6 +90,7 @@ const getDisplayName = (
 export function AnnotationPanel({
   servicesManager,
   commandsManager,
+  extensionManager,
   activeTool: globalActiveTool,
   setActiveTool: setGlobalActiveTool,
   studyInstanceUIDs,
@@ -96,6 +101,7 @@ export function AnnotationPanel({
   const [activeViewportId, setActiveViewportId] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [isLoadingPrevious, setIsLoadingPrevious] = useState(false);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
 
   const studyInstanceUID = Array.isArray(studyInstanceUIDs)
@@ -171,6 +177,162 @@ export function AnnotationPanel({
     return () => unsub.unsubscribe();
   }, [activeViewportId, toolGroupService, setGlobalActiveTool]);
 
+  // ─── Manual Load Previous ───────────────────────────────────────────────
+
+  const handleLoadPrevious = useCallback(async () => {
+    if (!studyInstanceUID) {
+      return;
+    }
+
+    setIsLoadingPrevious(true);
+    try {
+      const saved = await loadAnnotations(studyInstanceUID);
+      if (saved && saved.length > 0) {
+        const ALLOWED_KEYS = [
+          'uid', 'color', 'data', 'getReport', 'displayText', 'SOPInstanceUID',
+          'FrameOfReferenceUID', 'referenceStudyUID', 'referenceSeriesUID',
+          'frameNumber', 'displaySetInstanceUID', 'label', 'isLocked', 'isVisible',
+          'description', 'type', 'unit', 'points', 'source', 'toolName', 'metadata',
+          'area', 'mean', 'stdDev', 'perimeter', 'length', 'shortestDiameter',
+          'longestDiameter', 'cachedStats', 'isSelected', 'textBox', 'referencedImageId', 'isDirty',
+        ];
+
+        const { displaySetService } = servicesManager.services;
+
+        let loadedCount = 0;
+        saved.forEach(m => {
+          try {
+            // Validate the annotation data before attempting to hydrate.
+            // This prevents crashes in the rendering engine due to malformed point data.
+            const validation = validateAnnotation(m);
+            if (!validation.isValid) {
+              console.warn(`[AnnotationPanel] Skipping malformed annotation ${m.uid}: ${validation.reason}`);
+              return;
+            }
+
+            // Strict filtering of keys to pass MeasurementService validation.
+            // Database-specific keys like 'id' or 'study_instance_uid' will be stripped.
+            const cleanData: any = {};
+            ALLOWED_KEYS.forEach(key => {
+              if (m[key] !== undefined) {
+                cleanData[key] = m[key];
+              }
+            });
+
+            // Resolve the correct displaySetInstanceUID for the current session.
+            // IMPORTANT: We must first clear the old session-specific UID.
+            // Using a stale UID from a previous session is what causes the crash.
+            delete cleanData.displaySetInstanceUID;
+
+            if (displaySetService) {
+              // Resolve UIDs even if keys are named differently in database
+              const sopUID = m.SOPInstanceUID || m.sopInstanceUid || m.sopInstanceUID;
+              const seriesUID = m.referenceSeriesUID || m.seriesInstanceUid || m.seriesInstanceUID || m.SeriesInstanceUID;
+
+              if (sopUID) {
+                let ds = displaySetService.getDisplaySetForSOPInstanceUID(sopUID, seriesUID);
+                
+                // Fallback: search all display sets if the series-specific search failed
+                if (!ds) {
+                  ds = displaySetService.getDisplaySetForSOPInstanceUID(sopUID, null);
+                }
+
+                if (ds) {
+                  cleanData.displaySetInstanceUID = ds.displaySetInstanceUID;
+                }
+              }
+            }
+
+            // If we still don't have a displaySetInstanceUID, skip this annotation.
+            // Interacting with measurements that don't belong to a displaySet causes crashes in OHIF.
+            if (!cleanData.displaySetInstanceUID) {
+              console.warn(`[AnnotationPanel] Skipping annotation ${m.uid} - no matching display set found in current session.`);
+              return;
+            }
+
+            // Deep clean to force imageId resolution by the extension.
+            // Stale referencedImageIds from previous sessions can prevent rendering.
+            if (cleanData.metadata) {
+              const { referencedImageId, ...cleanMetadata } = cleanData.metadata;
+              cleanData.metadata = cleanMetadata;
+            }
+            delete cleanData.referencedImageId;
+
+            const source = measurementService.getSource(
+              cleanData.source?.name || 'Cornerstone3DTools',
+              cleanData.source?.version || '0.1'
+            );
+
+            // Structure required by cornerstone extension's RAW_MEASUREMENT_ADDED subscriber
+            const wrappedData = {
+              annotation: cleanData,
+            };
+
+            const result = measurementService.addRawMeasurement(
+              source,
+              cleanData.toolName || cleanData.type,
+              wrappedData,
+              (data: any) => data.annotation, // Schema passthrough
+              extensionManager.getActiveDataSourceOrNull()
+            );
+
+            if (result) {
+              loadedCount++;
+            }
+          } catch (err) {
+            console.warn('[AnnotationPanel] Failed to hydrate measurement:', err);
+          }
+        });
+
+        // Trigger a re-render of all viewports to show the newly added annotations
+        const { cornerstoneViewportService } = servicesManager.services;
+        if (cornerstoneViewportService && loadedCount > 0) {
+          setTimeout(() => {
+            try {
+              cornerstoneViewportService.getRenderingEngine()?.render();
+            } catch (renderError) {
+              console.warn('[AnnotationPanel] Failed to trigger re-render:', renderError);
+            }
+          }, 250);
+        }
+        
+        const { uiNotificationService } = servicesManager.services;
+        if (loadedCount > 0) {
+          uiNotificationService.show({
+            title: 'Success',
+            message: `Successfully loaded ${loadedCount} previous annotations`,
+            type: 'success',
+          });
+        } else {
+          uiNotificationService.show({
+            title: 'Info',
+            message: saved.length > 0 
+              ? 'No annotations were valid for this study'
+              : 'No previous annotations found for this study',
+            type: 'info',
+          });
+        }
+      } else {
+        const { uiNotificationService } = servicesManager.services;
+        uiNotificationService.show({
+          title: 'Info',
+          message: 'No previous annotations found for this study',
+          type: 'info',
+        });
+      }
+    } catch (e) {
+      console.error('Failed to load measurements', e);
+      const { uiNotificationService } = servicesManager.services;
+      uiNotificationService.show({
+        title: 'Error',
+        message: 'Failed to fetch previous annotations',
+        type: 'error',
+      });
+    } finally {
+      setIsLoadingPrevious(false);
+    }
+  }, [studyInstanceUID, measurementService, servicesManager.services, extensionManager]);
+
   // ─── Handlers ──────────────────────────────────────────────────────────
 
   const handleSave = useCallback(async () => {
@@ -193,6 +355,12 @@ export function AnnotationPanel({
     } catch (e) {
       console.error('Failed to save measurements', e);
       setSaveStatus('idle');
+      const { uiNotificationService } = servicesManager.services;
+      uiNotificationService.show({
+        title: 'Save Failed',
+        message: e instanceof Error ? e.message : 'Failed to save measurements to database',
+        type: 'error',
+      });
     }
   }, [commandsManager, viewportGridService, measurementService, studyInstanceUID]);
 
@@ -410,10 +578,53 @@ export function AnnotationPanel({
 
         <AnimatePresence mode="popLayout">
           {measurements.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 8, opacity: 0.4 }}>
-              <Typography variant="body2" color="text.secondary">
+            <Box
+              sx={{
+                textAlign: 'center',
+                py: 4,
+                px: 2,
+                borderRadius: 4,
+                bgcolor: 'rgba(255, 255, 255, 0.02)',
+                border: '1px dashed rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mb: 3 }}
+              >
                 Use a tool above to add an annotation
               </Typography>
+
+              <Button
+                onClick={handleLoadPrevious}
+                disabled={isLoadingPrevious}
+                startIcon={
+                  isLoadingPrevious ? (
+                    <CircularProgress
+                      size={16}
+                      color="inherit"
+                    />
+                  ) : (
+                    <CloudDownloadIcon sx={{ fontSize: 18 }} />
+                  )
+                }
+                sx={{
+                  color: 'primary.main',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  py: 1,
+                  px: 4,
+                  borderRadius: 2,
+                  bgcolor: 'rgba(59, 130, 246, 0.08)',
+                  '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.15)', transform: 'translateY(-1px)' },
+                  '&:active': { transform: 'translateY(0px)' },
+                  transition: 'all 0.2s',
+                }}
+              >
+                {isLoadingPrevious ? 'Loading...' : 'Load Previous Annotations'}
+              </Button>
             </Box>
           ) : (
             <Stack spacing={1.5}>

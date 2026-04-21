@@ -39,6 +39,7 @@ import {
   TextField,
   Divider,
   Fab,
+  MenuItem,
 } from '@mui/material';
 import { theme } from '../Theme';
 
@@ -80,9 +81,11 @@ function SettingsPanel() {
   
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [preferredUnit, setPreferredUnit] = useState(user?.user_metadata?.preferred_unit || 'px');
   
   const [isSavingName, setIsSavingName] = useState(false);
   const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
+  const [isSavingUnit, setIsSavingUnit] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   // Custom UI Dialog States
@@ -94,33 +97,32 @@ function SettingsPanel() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const handleSaveName = async () => {
-    if (!fullName) return;
-    setIsSavingName(true);
-    try {
-      const { error } = await supabase.auth.updateUser({
-        data: { full_name: fullName }
-      });
-      if (error) throw error;
-      showToast('Name updated successfully!');
-    } catch (err: any) {
-      showToast('Error updating name: ' + err.message, 'error');
-    } finally {
-      setIsSavingName(false);
-    }
-  };
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleUpdateEmail = async () => {
-    if (!email) return;
-    setIsUpdatingEmail(true);
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
     try {
-      const { error } = await supabase.auth.updateUser({ email });
-      if (error) throw error;
-      showToast('Confirmation email sent! Please check both your current and new email addresses to verify the change.');
+      // Update metadata
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: { 
+          full_name: fullName,
+          preferred_unit: preferredUnit 
+        }
+      });
+      if (metadataError) throw metadataError;
+
+      // Update email if changed
+      if (email !== user?.email) {
+        const { error: emailError } = await supabase.auth.updateUser({ email });
+        if (emailError) throw emailError;
+        showToast('Confirmation email sent! Please check both addresses.');
+      } else {
+        showToast('Settings saved successfully!');
+      }
     } catch (err: any) {
-      showToast('Error updating email: ' + err.message, 'error');
+      showToast('Error saving settings: ' + err.message, 'error');
     } finally {
-      setIsUpdatingEmail(false);
+      setIsSaving(false);
     }
   };
 
@@ -223,25 +225,25 @@ function SettingsPanel() {
         </Tooltip>
       </Box>
 
-      <Box
-        sx={{
-          p: 3,
-          bgcolor: 'rgba(30, 41, 59, 0.45)',
-          borderRadius: 4,
-          border: '1px solid rgba(255,255,255,0.06)',
-          maxWidth: 500,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 3,
-        }}
-      >
-        <Typography variant="h6" color="text.primary" fontWeight={700}>
-          Account Details
-        </Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 500 }}>
+        {/* Account & Preferences Group */}
+        <Box
+          sx={{
+            p: 3,
+            bgcolor: 'rgba(30, 41, 59, 0.45)',
+            borderRadius: 4,
+            border: '1px solid rgba(255,255,255,0.06)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 3,
+          }}
+        >
+          <Typography variant="h6" color="text.primary" fontWeight={700}>
+            Account Details
+          </Typography>
 
-        <Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Full Name</Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Full Name</Typography>
             <TextField 
               size="small" 
               fullWidth 
@@ -256,18 +258,10 @@ function SettingsPanel() {
                 } 
               }}
             />
-            <ButtonBase 
-              onClick={handleSaveName}
-              disabled={isSavingName}
-              sx={{ px: 3, borderRadius: 1.5, bgcolor: '#3b82f6', color: 'white', fontWeight: 600, '&:hover': { bgcolor: '#2563eb' }, opacity: isSavingName ? 0.7 : 1 }}>
-              {isSavingName ? '...' : 'Save'}
-            </ButtonBase>
           </Box>
-        </Box>
 
-        <Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Email Address</Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Email Address</Typography>
             <TextField 
               size="small" 
               type="email"
@@ -283,37 +277,98 @@ function SettingsPanel() {
                 } 
               }}
             />
+          </Box>
+
+          <Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Preferred Measurement Unit</Typography>
+            <TextField 
+              select
+              size="small" 
+              fullWidth 
+              value={preferredUnit}
+              onChange={e => setPreferredUnit(e.target.value)}
+              sx={{ 
+                '& .MuiSelect-select': { color: 'white' },
+                '& .MuiOutlinedInput-root': { 
+                  bgcolor: 'rgba(0,0,0,0.2)',
+                  fieldset: { borderColor: 'rgba(255,255,255,0.1)' },
+                  '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2)' }
+                },
+                '& .MuiSvgIcon-root': { color: 'rgba(255,255,255,0.5)' }
+              }}
+              SelectProps={{
+                MenuProps: {
+                  PaperProps: {
+                    sx: {
+                      bgcolor: 'rgb(15, 23, 42)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: 'white',
+                      '& .MuiMenuItem-root:hover': { bgcolor: 'rgba(255,255,255,0.05)' },
+                      '& .Mui-selected': { bgcolor: 'rgba(30, 64, 175, 0.4) !important' }
+                    }
+                  }
+                }
+              }}
+            >
+              <MenuItem value="px">Pixels (px)</MenuItem>
+              <MenuItem value="mm">Millimeters (mm)</MenuItem>
+            </TextField>
+          </Box>
+
+          <Box sx={{ mt: 1 }}>
             <ButtonBase 
-              onClick={handleUpdateEmail}
-              disabled={isUpdatingEmail}
-              sx={{ px: 3, borderRadius: 1.5, bgcolor: '#3b82f6', color: 'white', fontWeight: 600, '&:hover': { bgcolor: '#2563eb' }, opacity: isUpdatingEmail ? 0.7 : 1 }}>
-              {isUpdatingEmail ? '...' : 'Update'}
+              onClick={handleSaveChanges}
+              disabled={isSaving}
+              sx={{ 
+                px: 4, 
+                py: 1.5, 
+                borderRadius: 1.5, 
+                bgcolor: '#3b82f6', 
+                color: 'white', 
+                fontWeight: 700, 
+                '&:hover': { bgcolor: '#2563eb' }, 
+                opacity: isSaving ? 0.7 : 1 
+              }}
+            >
+              {isSaving ? 'Saving Changes...' : 'Save Changes'}
             </ButtonBase>
           </Box>
         </Box>
 
-        <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 1 }} />
-
-        <Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: '0.8rem' }}>
-            Permanently delete your account and all associated DICOM studies and annotations.
+        {/* Delete Account Section */}
+        <Box
+          sx={{
+            p: 3,
+            bgcolor: 'rgba(239, 68, 68, 0.03)',
+            borderRadius: 4,
+            border: '1px solid rgba(239, 68, 68, 0.15)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
+            Permanently delete your account and all associated DICOM studies and annotations. This action is irreversible.
           </Typography>
-          <ButtonBase 
-            onClick={handleDeleteAccount}
-            disabled={isDeletingAccount}
-            sx={{ 
-              px: 3, py: 1.25, borderRadius: 2, 
-              bgcolor: 'rgba(239, 68, 68, 0.1)', 
-              color: 'error.main', 
-              fontWeight: 600, 
-              fontSize: '0.875rem',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              '&:hover': { bgcolor: 'error.main', color: 'white', borderColor: 'error.main' },
-              opacity: isDeletingAccount ? 0.6 : 1,
-            }}
-          >
-            {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
-          </ButtonBase>
+          <Box>
+            <ButtonBase 
+              onClick={handleDeleteAccount}
+              disabled={isDeletingAccount}
+              sx={{ 
+                px: 3, 
+                py: 1.25, 
+                borderRadius: 2, 
+                bgcolor: 'rgba(239, 68, 68, 0.1)', 
+                color: 'error.main', 
+                fontWeight: 600, 
+                fontSize: '0.875rem',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                '&:hover': { bgcolor: 'error.main', color: 'white', borderColor: 'error.main' },
+                opacity: isDeletingAccount ? 0.6 : 1,
+              }}>
+              {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
+            </ButtonBase>
+          </Box>
         </Box>
       </Box>
 
