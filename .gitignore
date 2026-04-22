@@ -75,3 +75,6 @@ testdata
 test-*.js
 test-*.mjs
 config.txt
+
+screenshots/
+docs
