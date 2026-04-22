@@ -3,6 +3,7 @@
 const path = require('path');
 const { merge } = require('webpack-merge');
 const webpack = require('webpack');
+require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
 const webpackBase = require('./../../../.webpack/webpack.base.js');
 // ~~ Plugins
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
@@ -86,6 +87,11 @@ module.exports = (env, argv) => {
       // For debugging re-renders
       // MillionLint.webpack(),
       new Dotenv(),
+      new webpack.DefinePlugin({
+        'process.env.GEMINI_API_KEY': JSON.stringify(
+          process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || ''
+        ),
+      }),
       // In production: clean dist before rebuilding.
       // In dev: skip — CleanWebpackPlugin would nuke and rewrite 294 MB dist before
       // the browser can load anything, adding several minutes to every restart.

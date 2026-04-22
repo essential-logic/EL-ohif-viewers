@@ -44,8 +44,14 @@ export const AICopilot: React.FC<AICopilotProps> = ({ open, onClose, studyInstan
     setIsTyping(true);
 
     try {
-      // Hardcoded Gemini API Key as requested
-      const ai = new GoogleGenAI({ apiKey: "AIzaSyBWG4JZZlvj9TWhuVVCyTGQrB9cWfzZ4m8" });
+      // Use a safer check for process.env to avoid "process is not defined"
+      const apiKey = typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : (window as any).GEMINI_API_KEY;
+
+      if (!apiKey || apiKey === 'your_gemini_api_key_here' || apiKey === '') {
+        throw new Error('Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env file and restart the server.');
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       const prompt = `You are an expert AI Radiology Assistant integrated into the Essential Logic OHIF Viewer. 
 You are currently viewing DICOM Study Instance UID: ${Array.isArray(studyInstanceUIDs) ? studyInstanceUIDs[0] : studyInstanceUIDs}.
 The user is a radiologist or clinician asking a question. Please be highly professional, accurate, and concise.
@@ -53,15 +59,29 @@ The user is a radiologist or clinician asking a question. Please be highly profe
 User Question: ${userText}`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: 'gemini-1.5-flash',
         contents: prompt,
       });
 
-      setMessages(prev => [...prev, { role: 'assistant', content: response.text || "I'm sorry, I could not generate a response." }]);
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: response.text || "I'm sorry, I could not generate a response.",
+        },
+      ]);
     } catch (error: any) {
-      console.error("Gemini API Error:", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${error.message}.` }]);
+      console.error('Gemini API Error:', error);
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `Error: ${error.message}.`,
+        },
+      ]);
     } finally {
+
+
       setIsTyping(false);
     }
   };
