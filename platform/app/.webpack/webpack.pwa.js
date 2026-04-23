@@ -3,7 +3,7 @@
 const path = require('path');
 const { merge } = require('webpack-merge');
 const webpack = require('webpack');
-require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../../.env') });
 const webpackBase = require('./../../../.webpack/webpack.base.js');
 // ~~ Plugins
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
@@ -133,6 +133,7 @@ module.exports = (env, argv) => {
         filename: 'index.html',
         templateParameters: {
           PUBLIC_URL: PUBLIC_URL,
+          GEMINI_API_KEY: process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
         },
       }),
       // Generate a service worker — production only.
