@@ -45,7 +45,8 @@ export const AICopilot: React.FC<AICopilotProps> = ({ open, onClose, studyInstan
 
     try {
       // Use a safer check for process.env to avoid "process is not defined"
-      const apiKey = typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : (window as any).GEMINI_API_KEY;
+      // Prioritize global window config, then fallback to process.env
+      const apiKey = (window as any).GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '');
 
       if (!apiKey || apiKey === 'your_gemini_api_key_here' || apiKey === '') {
         throw new Error('Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env file and restart the server.');
@@ -59,7 +60,7 @@ The user is a radiologist or clinician asking a question. Please be highly profe
 User Question: ${userText}`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.5-flash',
         contents: prompt,
       });
 

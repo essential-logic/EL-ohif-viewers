@@ -491,6 +491,7 @@ const connectMeasurementServiceToTools = ({
           ...(data?.annotation?.data || {}),
           text: data?.annotation?.data?.text,
           handles: {
+            activeHandleIndex: null,
             points: measurement.points,
             textBox: measurement.textBox,
             ...(data?.annotation?.data?.handles || {}),
