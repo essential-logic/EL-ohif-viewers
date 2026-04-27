@@ -5,10 +5,9 @@ const ORTHANC_AUTH = Deno.env.get('ORTHANC_AUTH') || 'admin:admin';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-study-instance-uid, x-study-name, x-category, x-tags, range, accept',
-  'Access-Control-Expose-Headers': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-study-instance-uid, x-study-name, x-category, x-tags, range, accept',
+  'Access-Control-Max-Age': '86400',
 };
 
 // ─── JWT Decoder (no network roundtrip) ──────────────────────────────────────
@@ -86,15 +85,12 @@ async function fetchWithRetry(
 // ─── Main handler ─────────────────────────────────────────────────────────────
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') {
-    const requestedHeaders = req.headers.get('Access-Control-Request-Headers');
-    const requestedMethod = req.headers.get('Access-Control-Request-Method');
-    return new Response('ok', {
+    return new Response(null, { 
+      status: 204,
       headers: {
         ...corsHeaders,
-        'Access-Control-Allow-Headers':
-          requestedHeaders || corsHeaders['Access-Control-Allow-Headers'],
-        'Access-Control-Allow-Methods': requestedMethod || corsHeaders['Access-Control-Allow-Methods'] || 'GET, POST, DELETE, OPTIONS',
-      },
+        'Access-Control-Allow-Origin': req.headers.get('Origin') || '*',
+      } 
     });
   }
 

@@ -5,11 +5,47 @@ import { getIsLocked } from './utils/getIsLocked';
 import { getIsVisible } from './utils/getIsVisible';
 import { getDisplayUnit } from './utils';
 import { getStatisticDisplayString } from './utils/getValueDisplayString';
+
 /**
  * Represents a mapping utility for Planar Freehand ROI measurements.
  */
 const PlanarFreehandROI = {
-  toAnnotation: measurement => {},
+  toAnnotation: measurement => {
+    const {
+      uid,
+      SOPInstanceUID,
+      FrameOfReferenceUID,
+      points,
+      textBox,
+      metadata,
+      referencedImageId,
+      label,
+      data: cachedStats,
+    } = measurement;
+
+    return {
+      annotationUID: uid,
+      metadata: {
+        ...metadata,
+        SOPInstanceUID,
+        FrameOfReferenceUID,
+        referencedImageId,
+      },
+      data: {
+        handles: {
+          points: points ? [...points] : [],
+          textBox: textBox ? { ...textBox } : { hasMoved: false },
+          activeHandleIndex: null,
+        },
+        contour: {
+          polyline: points ? [...points] : [],
+          closed: true,
+        },
+        cachedStats: { ...cachedStats },
+        label,
+      },
+    };
+  },
 
   /**
    * Maps cornerstone annotation event data to measurement service format.
@@ -96,7 +132,7 @@ function getMappedAnnotations(annotation, displaySetService) {
   const { cachedStats } = data;
   const { referencedImageId } = metadata;
 
-  if( !cachedStats ) {
+  if (!cachedStats) {
     return;
   }
 

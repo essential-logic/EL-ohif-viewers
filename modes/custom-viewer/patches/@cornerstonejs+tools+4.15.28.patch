@@ -1,0 +1,257 @@
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/AngleTool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/AngleTool.js
+index 7f21fd2..f9a42dc 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/AngleTool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/AngleTool.js
+@@ -477,7 +477,10 @@ class AngleTool extends AnnotationTool {
+     }
+ }
+ function defaultGetTextLines(data, targetId) {
+-    const cachedVolumeStats = data.cachedStats[targetId];
++    const cachedVolumeStats = data?.cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { angle } = cachedVolumeStats;
+     if (angle === undefined) {
+         return;
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/BidirectionalTool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/BidirectionalTool.js
+index a4418c4..9d3d9ce 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/BidirectionalTool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/BidirectionalTool.js
+@@ -731,7 +731,11 @@ class BidirectionalTool extends AnnotationTool {
+ }
+ function defaultGetTextLines(data, targetId) {
+     const { cachedStats, label } = data;
+-    const { length, width, unit } = cachedStats[targetId];
++    const cachedVolumeStats = cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
++    const { length, width, unit } = cachedVolumeStats;
+     const textLines = [];
+     if (label) {
+         textLines.push(label);
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/CircleROITool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/CircleROITool.js
+index 3336768..561b66f 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/CircleROITool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/CircleROITool.js
+@@ -642,7 +642,10 @@ class CircleROITool extends AnnotationTool {
+     }; }
+ }
+ function defaultGetTextLines(data, targetId) {
+-    const cachedVolumeStats = data.cachedStats[targetId];
++    const cachedVolumeStats = data?.cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { radius, radiusUnit, area, mean, stdDev, max, min, isEmptyArea, areaUnit, modalityUnit, } = cachedVolumeStats;
+     const textLines = [];
+     if (csUtils.isNumber(radius)) {
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/CobbAngleTool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/CobbAngleTool.js
+index c794821..70c1a5f 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/CobbAngleTool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/CobbAngleTool.js
+@@ -669,7 +669,10 @@ class CobbAngleTool extends AnnotationTool {
+     }
+ }
+ function defaultGetTextLines(data, targetId) {
+-    const cachedVolumeStats = data.cachedStats[targetId];
++    const cachedVolumeStats = data?.cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { angle } = cachedVolumeStats;
+     if (angle === undefined) {
+         return;
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/DragProbeTool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/DragProbeTool.js
+index 1bd07e3..f29a4cd 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/DragProbeTool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/DragProbeTool.js
+@@ -117,7 +117,10 @@ class DragProbeTool extends ProbeTool {
+     }
+ }
+ function defaultGetTextLines(data, targetId) {
+-    const cachedVolumeStats = data.cachedStats[targetId];
++    const cachedVolumeStats = data?.cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { index, value, modalityUnit } = cachedVolumeStats;
+     if (value === undefined) {
+         return;
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/EllipticalROITool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/EllipticalROITool.js
+index 7dad62b..b45aa68 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/EllipticalROITool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/EllipticalROITool.js
+@@ -678,7 +678,10 @@ class EllipticalROITool extends AnnotationTool {
+     }
+ }
+ function defaultGetTextLines(data, targetId) {
+-    const cachedVolumeStats = data.cachedStats[targetId];
++    const cachedVolumeStats = data?.cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { area, mean, stdDev, max, isEmptyArea, areaUnit, modalityUnit, min } = cachedVolumeStats;
+     const textLines = [];
+     if (csUtils.isNumber(area)) {
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/HeightTool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/HeightTool.js
+index f015dca..c4a8832 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/HeightTool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/HeightTool.js
+@@ -401,7 +401,10 @@ class HeightTool extends AnnotationTool {
+     }
+ }
+ function defaultGetTextLines(data, targetId) {
+-    const cachedVolumeStats = data.cachedStats[targetId];
++    const cachedVolumeStats = data?.cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { height, unit } = cachedVolumeStats;
+     if (height === undefined || height === null || isNaN(height)) {
+         return;
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/LengthTool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/LengthTool.js
+index 0be8871..8cfe897 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/LengthTool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/LengthTool.js
+@@ -421,7 +421,10 @@ class LengthTool extends AnnotationTool {
+     }
+ }
+ function defaultGetTextLines(data, targetId) {
+-    const cachedVolumeStats = data.cachedStats[targetId];
++    const cachedVolumeStats = data?.cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { length, unit } = cachedVolumeStats;
+     if (length === undefined || length === null || isNaN(length)) {
+         return;
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/LivewireContourTool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/LivewireContourTool.js
+index 1cbe02f..a473b4d 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/LivewireContourTool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/LivewireContourTool.js
+@@ -643,7 +643,10 @@ class LivewireContourTool extends ContourSegmentationBaseTool {
+ }
+ export default LivewireContourTool;
+ function defaultGetTextLines(data, targetId) {
+-    const cachedVolumeStats = data.cachedStats[targetId];
++    const cachedVolumeStats = data?.cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { area, areaUnit } = cachedVolumeStats;
+     const textLines = [];
+     if (area) {
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/PlanarFreehandROITool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/PlanarFreehandROITool.js
+index a4757b8..26d0468 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/PlanarFreehandROITool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/PlanarFreehandROITool.js
+@@ -97,6 +97,7 @@ class PlanarFreehandROITool extends ContourSegmentationBaseTool {
+             evt.preventDefault();
+         };
+         this.isPointNearTool = (element, annotation, canvasCoords, proximity) => {
++            if (!annotation?.data?.contour?.polyline?.length) return false;
+             const enabledElement = getEnabledElement(element);
+             const { viewport } = enabledElement;
+             const { polyline: points } = annotation.data.contour;
+@@ -544,7 +545,10 @@ class PlanarFreehandROITool extends ContourSegmentationBaseTool {
+     }
+ }
+ function defaultGetTextLines(data, targetId) {
+-    const cachedVolumeStats = data.cachedStats[targetId];
++    const cachedVolumeStats = data?.cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { area, mean, stdDev, length, perimeter, max, min, isEmptyArea, unit, areaUnit, modalityUnit, } = cachedVolumeStats || {};
+     const textLines = [];
+     if (csUtils.isNumber(area)) {
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/ProbeTool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/ProbeTool.js
+index 0e53257..3c1d417 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/ProbeTool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/ProbeTool.js
+@@ -352,7 +352,10 @@ class ProbeTool extends AnnotationTool {
+     }
+ }
+ function defaultGetTextLines(data, targetId) {
+-    const cachedVolumeStats = data.cachedStats[targetId];
++    const cachedVolumeStats = data?.cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { index, value, modalityUnit } = cachedVolumeStats;
+     if (value === undefined || !index) {
+         return;
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/RectangleROITool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/RectangleROITool.js
+index 3c96f9a..f9ea713 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/RectangleROITool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/RectangleROITool.js
+@@ -562,7 +562,10 @@ class RectangleROITool extends AnnotationTool {
+     }; }
+ }
+ function defaultGetTextLines(data, targetId) {
+-    const cachedVolumeStats = data.cachedStats[targetId];
++    const cachedVolumeStats = data?.cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { area, mean, max, stdDev, areaUnit, modalityUnit, min } = cachedVolumeStats;
+     if (mean === undefined || mean === null) {
+         return;
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/SplineROITool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/SplineROITool.js
+index f77fbab..6351de2 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/SplineROITool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/annotation/SplineROITool.js
+@@ -829,7 +829,10 @@ class SplineROITool extends ContourSegmentationBaseTool {
+     }; }
+ }
+ function defaultGetTextLines(data, targetId) {
+-    const cachedVolumeStats = data.cachedStats[targetId];
++    const cachedVolumeStats = data?.cachedStats?.[targetId];
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { area, isEmptyArea, areaUnit } = cachedVolumeStats;
+     const textLines = [];
+     if (area) {
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/segmentation/CircleROIStartEndThresholdTool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/segmentation/CircleROIStartEndThresholdTool.js
+index b194542..ae9766e 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/segmentation/CircleROIStartEndThresholdTool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/segmentation/CircleROIStartEndThresholdTool.js
+@@ -505,10 +505,13 @@ class CircleROIStartEndThresholdTool extends CircleROITool {
+     }
+ }
+ function defaultGetTextLines(data, _context = {}) {
+-    const cachedVolumeStats = data.cachedStats.statistics;
++    const cachedVolumeStats = data.cachedStats?.statistics;
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { area, mean, max, stdDev, areaUnit, modalityUnit } = cachedVolumeStats;
+     if (mean === undefined) {
+-        return;
++        return [];
+     }
+     const textLines = [];
+     textLines.push(`Area: ${csUtils.roundNumber(area)} ${areaUnit}`);
+diff --git a/node_modules/@cornerstonejs/tools/dist/esm/tools/segmentation/RectangleROIStartEndThresholdTool.js b/node_modules/@cornerstonejs/tools/dist/esm/tools/segmentation/RectangleROIStartEndThresholdTool.js
+index 67dd91e..a151c7b 100644
+--- a/node_modules/@cornerstonejs/tools/dist/esm/tools/segmentation/RectangleROIStartEndThresholdTool.js
++++ b/node_modules/@cornerstonejs/tools/dist/esm/tools/segmentation/RectangleROIStartEndThresholdTool.js
+@@ -434,10 +434,13 @@ class RectangleROIStartEndThresholdTool extends RectangleROITool {
+     }
+ }
+ function defaultGetTextLines(data, _context = {}) {
+-    const cachedVolumeStats = data.cachedStats.statistics;
++    const cachedVolumeStats = data.cachedStats?.statistics;
++    if (!cachedVolumeStats) {
++        return [];
++    }
+     const { area, mean, max, stdDev, areaUnit, modalityUnit } = cachedVolumeStats;
+     if (mean === undefined) {
+-        return;
++        return [];
+     }
+     const textLines = [];
+     textLines.push(`Area: ${csUtils.roundNumber(area)} ${areaUnit}`);

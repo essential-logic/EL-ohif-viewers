@@ -52,6 +52,7 @@ export function useAnnotationPersistence(
         await commandsManager.runCommand('storeMeasurements', {
           measurementData: measurements,
           dataSource,
+          additionalFindingTypes: [],
           options: {
             SeriesDescription: 'Annotation Report (Auto-saved)',
           },

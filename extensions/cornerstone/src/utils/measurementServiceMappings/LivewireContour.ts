@@ -1,14 +1,49 @@
 import SUPPORTED_TOOLS from './constants/supportedTools';
 import getSOPInstanceAttributes from './utils/getSOPInstanceAttributes';
 import { getDisplayUnit } from './utils';
-import { utils } from '@ohif/core';
+import { utils, MeasurementService } from '@ohif/core';
 import { getIsLocked } from './utils/getIsLocked';
 import { getIsVisible } from './utils/getIsVisible';
 /**
  * Represents a mapping utility for Livewire measurements.
  */
 const LivewireContour = {
-  toAnnotation: measurement => {},
+  toAnnotation: measurement => {
+    const {
+      uid,
+      SOPInstanceUID,
+      FrameOfReferenceUID,
+      points,
+      textBox,
+      metadata,
+      referencedImageId,
+      label,
+      data: cachedStats,
+    } = measurement;
+
+    return {
+      annotationUID: uid,
+      metadata: {
+        ...metadata,
+        SOPInstanceUID,
+        FrameOfReferenceUID,
+        referencedImageId,
+      },
+      data: {
+        handles: {
+          points: points ? [...points] : [],
+          textBox: textBox ? { ...textBox } : { hasMoved: false },
+          activeHandleIndex: null,
+        },
+        contour: {
+          polyline: points ? [...points] : [],
+          closed: true,
+        },
+        cachedStats: { ...cachedStats },
+        label,
+      },
+    };
+  },
 
   /**
    * Maps cornerstone annotation event data to measurement service format.

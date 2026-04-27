@@ -162,7 +162,7 @@ const measurementServiceMappingsFactory = (
         ),
       matchingCriteria: [
         {
-          valueType: MeasurementService.VALUE_TYPES.POLYLINE,
+          valueType: MeasurementService.VALUE_TYPES.RECTANGLE,
         },
       ],
     },

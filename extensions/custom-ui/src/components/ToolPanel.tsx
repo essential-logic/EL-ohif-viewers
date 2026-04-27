@@ -39,6 +39,11 @@ import {
   Fullscreen as FullscreenIcon,
   Print as PrintIcon,
   Save as SaveIcon,
+  CompareArrows as BidirectionalIcon,
+  Gesture as FreehandIcon,
+  Polyline as SplineIcon,
+  Timeline as LivewireIcon,
+  Adjust as EllipseIcon,
 } from '@mui/icons-material';
 import { ServicesManager, CommandsManager } from '@ohif/core';
 import { ToolGroup } from './ui/ToolGroup';
@@ -69,6 +74,10 @@ const CURSOR_MAP: Record<string, string> = {
   RectROI: 'crosshair',
   CircleROI: 'crosshair',
   EllipticalROI: 'crosshair',
+  Bidirectional: 'crosshair',
+  PlanarFreehandROI: 'crosshair',
+  SplineROI: 'crosshair',
+  LivewireContour: 'crosshair',
   Crosshairs: 'crosshair',
   CalibrationLine: 'crosshair',
   CobbAngle: 'crosshair',
@@ -171,7 +180,7 @@ export function ToolPanel({
     setActiveTool?.(id);
 
     // Sync the top mode tab (right panel overlay) based on the chosen tool
-    if (['Length', 'Angle', 'CircleROI', 'RectangleROI', 'Probe', 'ArrowAnnotate'].includes(id)) {
+    if (['Length', 'Angle', 'CircleROI', 'RectangleROI', 'Probe', 'ArrowAnnotate', 'Bidirectional', 'EllipticalROI', 'PlanarFreehandROI', 'SplineROI', 'LivewireContour'].includes(id)) {
       setViewMode?.('annotation');
     } else if (['Wwwc', 'wl_soft', 'wl_lung', 'wl_bone', 'wl_brain', 'wl_liver'].includes(id)) {
       setViewMode?.('adjustments');
@@ -299,22 +308,51 @@ export function ToolPanel({
       id: 'Length',
       icon: RulerIcon,
       label: 'Length',
-      // Primary — no action, ToolGroup calls onSelect → handleToolClick
+    },
+    {
+      id: 'Bidirectional',
+      icon: BidirectionalIcon,
+      label: 'Bidirectional',
+    },
+    {
+      id: 'ArrowAnnotate',
+      icon: AnnotateIcon,
+      label: 'Annotation',
+    },
+    {
+      id: 'EllipticalROI',
+      icon: EllipseIcon,
+      label: 'Ellipse',
+    },
+    {
+      id: 'RectangleROI',
+      icon: RectROIIcon,
+      label: 'Rectangle',
+    },
+    {
+      id: 'CircleROI',
+      icon: CircleROIIcon,
+      label: 'Circle',
+    },
+    {
+      id: 'PlanarFreehandROI',
+      icon: FreehandIcon,
+      label: 'Freehand ROI',
+    },
+    {
+      id: 'SplineROI',
+      icon: SplineIcon,
+      label: 'Spline ROI',
+    },
+    {
+      id: 'LivewireContour',
+      icon: LivewireIcon,
+      label: 'Livewire tool',
     },
     {
       id: 'Angle',
       icon: AngleIcon,
       label: 'Angle',
-    },
-    {
-      id: 'CircleROI',
-      icon: CircleROIIcon,
-      label: 'Circle ROI',
-    },
-    {
-      id: 'RectangleROI',
-      icon: RectROIIcon,
-      label: 'Rectangle ROI',
     },
     {
       id: 'Probe',

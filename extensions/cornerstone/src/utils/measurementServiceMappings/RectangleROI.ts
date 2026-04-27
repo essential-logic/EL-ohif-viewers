@@ -7,7 +7,38 @@ import { getIsLocked } from './utils/getIsLocked';
 import { getIsVisible } from './utils/getIsVisible';
 
 const RectangleROI = {
-  toAnnotation: measurement => {},
+  toAnnotation: measurement => {
+    const {
+      uid,
+      SOPInstanceUID,
+      FrameOfReferenceUID,
+      points,
+      textBox,
+      metadata,
+      referencedImageId,
+      label,
+      data: cachedStats,
+    } = measurement;
+
+    return {
+      annotationUID: uid,
+      metadata: {
+        ...metadata,
+        SOPInstanceUID,
+        FrameOfReferenceUID,
+        referencedImageId,
+      },
+      data: {
+        handles: {
+          points: points ? [...points] : [],
+          textBox: textBox ? { ...textBox } : { hasMoved: false },
+          activeHandleIndex: null,
+        },
+        cachedStats: { ...cachedStats },
+        label,
+      },
+    };
+  },
   toMeasurement: (
     csToolsEventDetail,
     displaySetService,
