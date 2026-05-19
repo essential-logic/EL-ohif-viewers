@@ -9,8 +9,20 @@ import { createClient } from '@supabase/supabase-js';
  * SUPABASE_URL  : https://xxxxxxxxxxxxxxxxxxx.supabase.co
  * SUPABASE_ANON : your "anon" public key (safe to expose in frontend)
  */
-const SUPABASE_URL = 'https://xyuxiachrjpcrmiephqa.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw';
+const SUPABASE_URL =
+  (window as any).SUPABASE_URL ||
+  (window as any).VITE_SUPABASE_URL ||
+  (typeof process !== 'undefined'
+    ? process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+    : '') ||
+  '';
+const SUPABASE_ANON_KEY =
+  (window as any).SUPABASE_ANON_KEY ||
+  (window as any).VITE_SUPABASE_ANON_KEY ||
+  (typeof process !== 'undefined'
+    ? process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+    : '') ||
+  '';
 
 if (SUPABASE_URL.includes('YOUR_PROJECT_ID')) {
   console.warn(

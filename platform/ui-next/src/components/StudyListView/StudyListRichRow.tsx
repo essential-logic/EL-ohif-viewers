@@ -10,9 +10,12 @@ const StudyListRichRow = ({
   description,
   modality,
   numInstances,
+  instances,
   onClick,
   className,
 }) => {
+  const displayInstances = numInstances ?? instances ?? '?';
+
   return (
     <div
       className={classnames(
@@ -49,7 +52,7 @@ const StudyListRichRow = ({
 
         <div className="text-info-muted flex w-16 items-center justify-end gap-1 text-xs">
           <Icons.GroupLayers className="h-4 w-4" />
-          <span>{numInstances}</span>
+          <span>{displayInstances}</span>
         </div>
 
         <Icons.LaunchArrow className="text-info-muted group-hover:text-actions-highlight h-4 w-4 opacity-0 transition-all group-hover:opacity-100" />
@@ -65,6 +68,7 @@ StudyListRichRow.propTypes = {
   description: PropTypes.string,
   modality: PropTypes.string,
   numInstances: PropTypes.number,
+  instances: PropTypes.number,
   onClick: PropTypes.func,
   className: PropTypes.string,
 };

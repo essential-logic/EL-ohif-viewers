@@ -88,8 +88,11 @@ module.exports = (env, argv) => {
       // MillionLint.webpack(),
       new Dotenv(),
       new webpack.DefinePlugin({
-        'process.env.GEMINI_API_KEY': JSON.stringify(
-          process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || ''
+        'process.env.SUPABASE_URL': JSON.stringify(
+          process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
+        ),
+        'process.env.SUPABASE_ANON_KEY': JSON.stringify(
+          process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
         ),
       }),
       // In production: clean dist before rebuilding.
@@ -133,7 +136,8 @@ module.exports = (env, argv) => {
         filename: 'index.html',
         templateParameters: {
           PUBLIC_URL: PUBLIC_URL,
-          GEMINI_API_KEY: process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '',
+          SUPABASE_URL: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+          SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
         },
       }),
       // Generate a service worker — production only.
@@ -171,8 +175,12 @@ module.exports = (env, argv) => {
       proxy: [
         {
           context: ['/dicom-web', '/wado'],
-          target: 'http://76.13.99.8:8042',
+          target: 'https://xyuxiachrjpcrmiephqa.supabase.co/functions/v1/orthanc-proxy',
           changeOrigin: true,
+          pathRewrite: {
+            '^/dicom-web': '',
+            '^/wado': '',
+          },
         },
         {
           context: ['/dicomweb'],
@@ -218,11 +226,15 @@ module.exports = (env, argv) => {
   if (hasProxy) {
     mergedConfig.devServer.proxy = mergedConfig.devServer.proxy || {};
     mergedConfig.devServer.proxy = [
-      {
-        context: ['/dicom-web', '/wado'],
-        target: 'http://76.13.99.8:8042',
-        changeOrigin: true,
-      },
+        {
+          context: ['/dicom-web', '/wado'],
+          target: 'https://xyuxiachrjpcrmiephqa.supabase.co/functions/v1/orthanc-proxy',
+          changeOrigin: true,
+          pathRewrite: {
+            '^/dicom-web': '',
+            '^/wado': '',
+          },
+        },
       {
         context: [PROXY_PATH_REWRITE_FROM || '/dicomweb'],
         target: PROXY_DOMAIN,
