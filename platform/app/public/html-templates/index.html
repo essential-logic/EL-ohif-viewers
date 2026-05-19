@@ -45,7 +45,9 @@
     <script type="text/javascript">
       console.time('scriptToView');
       window.PUBLIC_URL = '<%= PUBLIC_URL %>';
-      window.GEMINI_API_KEY = '<%= GEMINI_API_KEY %>';
+      window.GEMINI_API_KEY = '<%= (typeof GEMINI_API_KEY !== "undefined" ? GEMINI_API_KEY : "") %>';
+      window.SUPABASE_URL = '<%= (typeof SUPABASE_URL !== "undefined" ? SUPABASE_URL : "") %>';
+      window.SUPABASE_ANON_KEY = '<%= (typeof SUPABASE_ANON_KEY !== "undefined" ? SUPABASE_ANON_KEY : "") %>';
       
       // EL-specific Token Sync (Critical for 401 fixes)
       (function() {

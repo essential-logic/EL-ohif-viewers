@@ -28,7 +28,7 @@ function getFilteredCornerstoneToolState(measurementData, additionalFindingTypes
     // NOTE -> We use the CORNERSTONEJS coding schemeDesignator which we have
     // defined in the @cornerstonejs/adapters
     if (measurementDataI.label) {
-      if (additionalFindingTypes.includes(toolType)) {
+      if (additionalFindingTypes?.includes(toolType)) {
         finding = {
           CodeValue: 'CORNERSTONEFREETEXT',
           CodingSchemeDesignator: 'CORNERSTONEJS',

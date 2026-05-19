@@ -34,7 +34,7 @@ const VERSION_NUMBER = fs.readFileSync(path.join(__dirname, '../version.txt'), '
 const COMMIT_HASH = fs.readFileSync(path.join(__dirname, '../commit.txt'), 'utf8') || '';
 
 //
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const defineValues = {
   /* Application */

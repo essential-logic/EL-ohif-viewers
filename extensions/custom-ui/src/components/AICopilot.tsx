@@ -4,6 +4,7 @@ import { Close as CloseIcon, Send as SendIcon, SmartToy as BotIcon, Person as Us
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI } from "@google/genai";
 import Markdown from 'marked-react';
+import DOMPurify from 'dompurify';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -192,7 +193,7 @@ User Question: ${userText}`;
                         '& li': { mb: 0.5, '&:last-child': { mb: 0 } },
                       }}
                     >
-                      <Markdown>{msg.content}</Markdown>
+                      <Markdown>{DOMPurify.sanitize(msg.content)}</Markdown>
                     </Box>
                   </Box>
                 );

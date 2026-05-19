@@ -17,7 +17,10 @@ export interface Study {
   date?: string;
   bodyPart?: string;
   seriesInStudyCount?: number;
+  numSeries?: number;
+  series?: number;
   numInstances?: number;
+  instances?: number;
   studyInstanceUid?: string;
   [key: string]: string | number | boolean | undefined;
 }
@@ -173,7 +176,7 @@ export const StudyCard = memo(function StudyCard({
                   {
                     icon: <EyeIcon sx={{ fontSize: 15, color: 'text.secondary' }} />,
                     label: 'Images',
-                    value: `${study.seriesInStudyCount ?? '?'}S / ${study.numInstances ?? '?'}I`,
+                    value: `${study.seriesInStudyCount ?? study.numSeries ?? study.series ?? '?'}S / ${study.numInstances ?? study.instances ?? '?'}I`,
                     mono: false,
                   },
                 ].map(col => (

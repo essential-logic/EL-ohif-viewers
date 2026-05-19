@@ -25,7 +25,7 @@ window.config = {
         enableStudyLazyLoad: true,
         thumbnailRendering: 'wadors',
         requestOptions: {
-          auth: 'admin:admin',
+          auth: '',
         },
         dicomUploadEnabled: true,
         singlepart: 'pdf,video',

@@ -349,7 +349,7 @@ const connectMeasurementServiceToTools = ({
   commandsManager,
   extensionManager,
 }) => {
-  const { measurementService, cornerstoneViewportService, viewportGridService } =
+  const { measurementService, cornerstoneViewportService, viewportGridService, displaySetService } =
     servicesManager.services;
   const { MEASUREMENT_REMOVED, MEASUREMENTS_CLEARED, MEASUREMENT_UPDATED, RAW_MEASUREMENT_ADDED } =
     measurementService.EVENTS;
@@ -360,7 +360,7 @@ const connectMeasurementServiceToTools = ({
     }
 
     commandsManager.run('startRecordingForAnnotationGroup');
-    for (const measurement of Object.values(measurements)) {
+    for (const measurement of Object.values(measurements) as any[]) {
       const { uid, source } = measurement;
       if (source.name !== CORNERSTONE_3D_TOOLS_SOURCE_NAME) {
         continue;
@@ -492,10 +492,19 @@ const connectMeasurementServiceToTools = ({
           text: data?.annotation?.data?.text,
           handles: {
             activeHandleIndex: null,
-            points: measurement.points,
-            textBox: measurement.textBox,
             ...(data?.annotation?.data?.handles || {}),
+            points: measurement.points || data?.annotation?.data?.handles?.points,
+            textBox: measurement.textBox || data?.annotation?.data?.handles?.textBox,
           },
+          contour: {
+            ...(data?.annotation?.data?.contour || {}),
+            polyline: measurement.points || data?.annotation?.data?.contour?.polyline,
+          },
+          spline:
+            data?.annotation?.data?.spline ||
+            (measurement.toolName === 'SplineROI' || measurement.toolName === 'LivewireContour'
+              ? { type: 'CATMULLROM', resolution: 20 }
+              : undefined),
           cachedStats: { ...(data?.annotation?.data?.cachedStats || {}) },
           label: data?.annotation?.data?.label || measurement.label,
           frameNumber,
@@ -507,6 +516,13 @@ const connectMeasurementServiceToTools = ({
         FrameOfReferenceUID: newAnnotation.metadata.FrameOfReferenceUID,
         options: { newAnnotation: true },
       });
+
+      // Trigger a render to ensure the new annotation shows up in the viewport
+      const renderingEngine = cornerstoneViewportService.getRenderingEngine();
+      if (renderingEngine) {
+        const viewportIds = renderingEngine.getViewports().map(viewport => viewport.id);
+        triggerAnnotationRenderForViewportIds(viewportIds);
+      }
     }
   );
 

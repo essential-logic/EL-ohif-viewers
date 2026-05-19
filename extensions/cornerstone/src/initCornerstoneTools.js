@@ -46,11 +46,87 @@ import {
   SplineContourSegmentationTool,
   LabelMapEditWithContourTool,
 } from '@cornerstonejs/tools';
+import { AnnotationTool } from '@cornerstonejs/tools';
+
 import { LabelmapSlicePropagationTool, MarkerLabelmapTool } from '@cornerstonejs/ai';
 import * as polySeg from '@cornerstonejs/polymorphic-segmentation';
 
 import CalibrationLineTool from './tools/CalibrationLineTool';
 import ImageOverlayViewerTool from './tools/ImageOverlayViewerTool';
+
+/**
+ * wrapToolConfig - The Ultimate Stability Wrapper
+ * 1. Guarantees defaultGetTextLines is null-safe (standard and threshold tools)
+ * 2. Wraps the instance's renderAnnotation in a try/catch to prevent corrupted points from crashing the app
+ */
+const wrapToolConfig = BaseClass => {
+  // If already wrapped or not a class, skip
+  if (!BaseClass || !BaseClass.prototype) {
+    return BaseClass;
+  }
+
+  const WrappedClass = class extends BaseClass {
+    constructor(toolProps, defaultToolProps) {
+      super(toolProps, defaultToolProps);
+      
+      // Safety 1: getTextLines (Handles: missing cachedStats, missing targetId, missing statistics)
+      if (this.configuration && typeof this.configuration.getTextLines === 'function') {
+        const originalGetTextLines = this.configuration.getTextLines;
+        this.configuration.getTextLines = (data, targetId) => {
+          // Check both standard location and threshold statistics location
+          if (!data?.cachedStats?.[targetId] && !data?.cachedStats?.statistics) {
+            return [];
+          }
+          try {
+            const result = originalGetTextLines.call(this, data, targetId);
+            return Array.isArray(result) ? result : [];
+          } catch (e) {
+            console.warn(`[SafeGetTextLines] Suppressed error in ${BaseClass.toolName}:`, e.message);
+            return [];
+          }
+        };
+        this.configuration.getTextLines._isSafe = true;
+      }
+
+      // Safety 2: Universal Render Failsafe (Handles: reading '0', missing polyline, undefined objects)
+      const originalRender = this.renderAnnotation;
+      if (typeof originalRender === 'function') {
+        this.renderAnnotation = function(enabledElement, svgDrawingHelper, annotation) {
+          // Spline-specific safety (don't even try to render if spline data is missing)
+          if (
+            (BaseClass.toolName === 'SplineROI' || BaseClass.toolName === 'LivewireContour') &&
+            !annotation?.data?.spline
+          ) {
+            return false;
+          }
+          try {
+            // @ts-ignore - originalRender is guaranteed to be a function here
+            return originalRender.call(this, enabledElement, svgDrawingHelper, annotation);
+          } catch (e) {
+            console.warn(`[DefensiveRender] Suppressed crash in ${BaseClass.toolName}:`, e.message);
+            return false;
+          }
+        };
+      }
+
+      // Safety 3: isPointNearTool (Handles: hover crashes during initialization)
+      const originalIsPointNear = this.isPointNearTool;
+      if (typeof originalIsPointNear === 'function') {
+        this.isPointNearTool = (element, annotation, canvasCoords, proximity) => {
+          try {
+            return originalIsPointNear.call(this, element, annotation, canvasCoords, proximity);
+          } catch (e) {
+            return false;
+          }
+        };
+      }
+    }
+  };
+
+  // Preserve static metadata which OHIF/Cornerstone relies on
+  WrappedClass.toolName = BaseClass.toolName;
+  return WrappedClass;
+};
 
 export default function initCornerstoneTools(configuration = {}) {
   CrosshairsTool.isAnnotation = false;
@@ -70,85 +146,74 @@ export default function initCornerstoneTools(configuration = {}) {
       },
     },
   });
-  addTool(PanTool);
-  addTool(SegmentBidirectionalTool);
-  addTool(WindowLevelTool);
-  addTool(StackScrollTool);
-  addTool(VolumeRotateTool);
-  addTool(ZoomTool);
-  addTool(ProbeTool);
-  addTool(MIPJumpToClickTool);
-  addTool(LengthTool);
-  addTool(RectangleROITool);
-  addTool(RectangleROIThresholdTool);
-  addTool(EllipticalROITool);
-  addTool(CircleROITool);
-  addTool(BidirectionalTool);
-  addTool(ArrowAnnotateTool);
-  addTool(DragProbeTool);
-  addTool(AngleTool);
-  addTool(CobbAngleTool);
-  addTool(MagnifyTool);
-  addTool(CrosshairsTool);
-  addTool(RectangleScissorsTool);
-  addTool(SphereScissorsTool);
-  addTool(CircleScissorsTool);
-  addTool(BrushTool);
-  addTool(PaintFillTool);
-  addTool(ReferenceLinesTool);
-  addTool(CalibrationLineTool);
-  addTool(TrackballRotateTool);
-  addTool(ImageOverlayViewerTool);
-  addTool(AdvancedMagnifyTool);
-  addTool(UltrasoundDirectionalTool);
-  addTool(UltrasoundPleuraBLineTool);
-  addTool(PlanarFreehandROITool);
-  addTool(SplineROITool);
-  addTool(LivewireContourTool);
-  addTool(OrientationMarkerTool);
-  addTool(WindowLevelRegionTool);
-  addTool(PlanarFreehandContourSegmentationTool);
-  addTool(SegmentSelectTool);
-  addTool(SegmentLabelTool);
-  addTool(LabelmapSlicePropagationTool);
-  addTool(MarkerLabelmapTool);
-  addTool(RegionSegmentPlusTool);
-  addTool(LivewireContourSegmentationTool);
-  addTool(SculptorTool);
-  addTool(SplineContourSegmentationTool);
-  addTool(LabelMapEditWithContourTool);
 
-  // --- Defensive Rendering Layer ---
-  /**
-   * Wraps a tool's renderAnnotation method in a try-catch block to prevent
-   * crashes during interaction (e.g., drawing/dragging) if data is temporarily malformed.
-   */
-  const wrapToolRender = ToolClass => {
-    const originalRender = ToolClass.prototype.renderAnnotation;
-    if (typeof originalRender === 'function') {
-      ToolClass.prototype.renderAnnotation = function (enabledElement, svgDrawingHelper) {
-        try {
-          return originalRender.call(this, enabledElement, svgDrawingHelper);
-        } catch (e) {
-          console.error(`[DefensiveRendering] ${ToolClass.toolName} render error:`, e);
-          return false;
-        }
-      };
+  // Global Tool Protection Registry helper
+  const _addTool = toolClass => addTool(wrapToolConfig(toolClass));
+
+  _addTool(PanTool);
+  _addTool(SegmentBidirectionalTool);
+  _addTool(WindowLevelTool);
+  _addTool(StackScrollTool);
+  _addTool(VolumeRotateTool);
+  _addTool(ZoomTool);
+  _addTool(ProbeTool);
+  _addTool(MIPJumpToClickTool);
+  _addTool(LengthTool);
+  _addTool(RectangleROITool);
+  _addTool(RectangleROIThresholdTool);
+  _addTool(EllipticalROITool);
+  _addTool(CircleROITool);
+  _addTool(BidirectionalTool);
+  _addTool(ArrowAnnotateTool);
+  _addTool(DragProbeTool);
+  _addTool(AngleTool);
+  _addTool(CobbAngleTool);
+  _addTool(MagnifyTool);
+  _addTool(CrosshairsTool);
+  _addTool(RectangleScissorsTool);
+  _addTool(SphereScissorsTool);
+  _addTool(CircleScissorsTool);
+  _addTool(BrushTool);
+  _addTool(PaintFillTool);
+  _addTool(ReferenceLinesTool);
+  _addTool(CalibrationLineTool);
+  _addTool(TrackballRotateTool);
+  _addTool(ImageOverlayViewerTool);
+  _addTool(AdvancedMagnifyTool);
+  _addTool(UltrasoundDirectionalTool);
+  _addTool(UltrasoundPleuraBLineTool);
+  _addTool(PlanarFreehandROITool);
+  _addTool(SplineROITool);
+  _addTool(LivewireContourTool);
+  _addTool(OrientationMarkerTool);
+  _addTool(WindowLevelRegionTool);
+  _addTool(PlanarFreehandContourSegmentationTool);
+  _addTool(SegmentSelectTool);
+  _addTool(SegmentLabelTool);
+  _addTool(LabelmapSlicePropagationTool);
+  _addTool(MarkerLabelmapTool);
+  _addTool(RegionSegmentPlusTool);
+  _addTool(LivewireContourSegmentationTool);
+  _addTool(SculptorTool);
+  _addTool(SplineContourSegmentationTool);
+  _addTool(LabelMapEditWithContourTool);
+
+  // Global Prototype Guard for background/stray checks
+  const _origNearCheck = AnnotationTool.prototype._imagePointNearToolOrHandle;
+  AnnotationTool.prototype._imagePointNearToolOrHandle = function (
+    element,
+    annotation,
+    canvasCoords,
+    proximity
+  ) {
+    try {
+      return _origNearCheck.call(this, element, annotation, canvasCoords, proximity);
+    } catch (e) {
+      return false;
     }
   };
 
-  // Wrap critical annotation tools
-  [
-    CircleROITool,
-    ArrowAnnotateTool,
-    LengthTool,
-    RectangleROITool,
-    EllipticalROITool,
-    BidirectionalTool,
-  ].forEach(wrapToolRender);
-  // ---------------------------------
-
-  // Modify annotation tools to use dashed lines on SR
+  // Modify annotation tools to use premium design tokens
   const annotationStyle = {
     textBoxFontSize: '15px',
     lineWidth: '1.5',

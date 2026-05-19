@@ -11,7 +11,44 @@ import { getStatisticDisplayString } from './utils/getValueDisplayString';
  */
 const SplineROI = {
   toAnnotation: measurement => {
-    // Implementation for converting measurement to annotation
+    const {
+      uid,
+      SOPInstanceUID,
+      FrameOfReferenceUID,
+      points,
+      textBox,
+      metadata,
+      referencedImageId,
+      label,
+      data: cachedStats,
+    } = measurement;
+
+    return {
+      annotationUID: uid,
+      metadata: {
+        ...metadata,
+        SOPInstanceUID,
+        FrameOfReferenceUID,
+        referencedImageId,
+      },
+      data: {
+        handles: {
+          points: points ? [...points] : [],
+          textBox: textBox ? { ...textBox } : { hasMoved: false },
+          activeHandleIndex: null,
+        },
+        contour: {
+          polyline: points ? [...points] : [],
+          closed: true,
+        },
+        spline: {
+          type: 'CATMULLROM', // Default type
+          resolution: 20,
+        },
+        cachedStats: { ...cachedStats },
+        label,
+      },
+    };
   },
 
   /**

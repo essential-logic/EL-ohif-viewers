@@ -14,7 +14,7 @@ export { preserveQueryParameters, preserveQueryStrings } from './utils/preserveQ
 // EL-specific Token Sync (Guaranteed to run at entry point)
 (function() {
   try {
-    const projectRef = 'xyuxiachrjpcrmiephqa';
+    const projectRef = window.config?.supabase?.projectRef || 'YOUR_PROJECT_ID';
     const storageKey = 'sb-' + projectRef + '-auth-token';
     const raw = localStorage.getItem(storageKey) || localStorage.getItem('supabase.auth.token');
     if (raw) {
@@ -22,7 +22,7 @@ export { preserveQueryParameters, preserveQueryStrings } from './utils/preserveQ
       const token = data.access_token || (data.currentSession && data.currentSession.access_token);
       if (token && token !== 'undefined' && token !== 'null') {
         window.__supabaseToken = token;
-        window.__supabaseApiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw';
+        window.__supabaseApiKey = window.config?.supabase?.anonKey || '';
         console.log('[EL-Auth] Entry point token sync successful.');
       }
     }

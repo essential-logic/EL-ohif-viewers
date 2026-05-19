@@ -6,12 +6,12 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGINS') || 'http://localhost:3000',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-Deno.serve(async (req) => {
+Deno.serve(async req => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -27,9 +27,15 @@ Deno.serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '');
 
-    // Use service role client to verify the user's JWT
-    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
+    // Use user-scoped client to verify the user's JWT AND enforce RLS
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } }
+    });
+    const {
+      data: { user },
+      error: authError,
+    } = await userClient.auth.getUser();
 
     if (authError || !user) {
       console.error('[Edge Function] Auth failed:', authError?.message);
@@ -42,8 +48,8 @@ Deno.serve(async (req) => {
     const userId = user.id;
     console.log(`[Edge Function] Authenticated userId: ${userId}`);
 
-    // Use service role client for DB ops (bypasses RLS, we enforce manually via user_id filter)
-    const db = adminClient;
+    // Use user-scoped client for DB ops (enforces RLS securely)
+    const db = userClient;
 
     const url = new URL(req.url);
     const { pathname } = url;
@@ -52,23 +58,34 @@ Deno.serve(async (req) => {
     // ─── ANNOTATIONS ─────────────────────────────────────────────────────────
 
     if (pathname.endsWith('/save-annotations') && req.method === 'POST') {
-      const { studyInstanceUid, annotations } = await req.json();
+      let body;
+      try {
+        body = await req.json();
+      } catch (err) {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const { studyInstanceUid, annotations } = body;
 
-      const { error } = await db
-        .from('study_annotations')
-        .upsert(
-          {
-            user_id: userId,
-            study_instance_uid: studyInstanceUid,
-            data: annotations,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id,study_instance_uid' }
-        );
+      const { error } = await db.from('study_annotations').upsert(
+        {
+          user_id: userId,
+          study_instance_uid: studyInstanceUid,
+          data: annotations,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,study_instance_uid' }
+      );
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      console.log(`[Edge Function] Saved ${annotations.length} annotations for ${studyInstanceUid}`);
+      console.log(
+        `[Edge Function] Saved ${annotations.length} annotations for ${studyInstanceUid}`
+      );
       return new Response(JSON.stringify({ message: 'Saved' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -84,9 +101,13 @@ Deno.serve(async (req) => {
         .eq('study_instance_uid', studyInstanceUid)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      console.log(`[Edge Function] Loaded annotations for ${studyInstanceUid}: ${data?.data?.length ?? 0} items`);
+      console.log(
+        `[Edge Function] Loaded annotations for ${studyInstanceUid}: ${data?.data?.length ?? 0} items`
+      );
       return new Response(JSON.stringify(data?.data || []), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -95,22 +116,31 @@ Deno.serve(async (req) => {
     // ─── SEGMENTATIONS ───────────────────────────────────────────────────────
 
     if (pathname.endsWith('/save-segmentation') && req.method === 'POST') {
-      const { studyInstanceUid, segmentationId, data } = await req.json();
+      let body;
+      try {
+        body = await req.json();
+      } catch (err) {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const { studyInstanceUid, segmentationId, data } = body;
 
-      const { error } = await db
-        .from('study_segmentations')
-        .upsert(
-          {
-            user_id: userId,
-            study_instance_uid: studyInstanceUid,
-            segmentation_id: segmentationId,
-            data,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id,study_instance_uid,segmentation_id' }
-        );
+      const { error } = await db.from('study_segmentations').upsert(
+        {
+          user_id: userId,
+          study_instance_uid: studyInstanceUid,
+          segmentation_id: segmentationId,
+          data,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,study_instance_uid,segmentation_id' }
+      );
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       console.log(`[Edge Function] Saved segmentation ${segmentationId} for ${studyInstanceUid}`);
       return new Response(JSON.stringify({ message: 'Saved' }), {
@@ -127,23 +157,29 @@ Deno.serve(async (req) => {
         .eq('user_id', userId)
         .eq('study_instance_uid', studyInstanceUid);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      console.log(`[Edge Function] Loaded ${data?.length ?? 0} segmentations for ${studyInstanceUid}`);
+      console.log(
+        `[Edge Function] Loaded ${data?.length ?? 0} segmentations for ${studyInstanceUid}`
+      );
       return new Response(JSON.stringify(data || []), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ 
-      error: 'Not Found', 
-      detail: `No handler for ${req.method} ${pathname}`,
-      hint: 'Check if the URL ends with the correct endpoint (e.g., /load-annotations)'
-    }), {
-      status: 404,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    return new Response(
+      JSON.stringify({
+        error: 'Not Found',
+        detail: `No handler for ${req.method} ${pathname}`,
+        hint: 'Check if the URL ends with the correct endpoint (e.g., /load-annotations)',
+      }),
+      {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error('[Edge Function] Error:', msg);

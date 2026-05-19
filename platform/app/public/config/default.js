@@ -3,6 +3,11 @@
 window.config = {
   name: 'config/default.js',
   routerBasename: '/',
+  supabase: {
+    url: (window['SUPABASE_URL'] || ''),
+    anonKey: (window['SUPABASE_ANON_KEY'] || ''),
+    projectRef: (window['SUPABASE_URL'] || '').match(/https:\/\/(.*)\.supabase\.co/)?.[1] || '',
+  },
   // whiteLabeling: {},
   extensions: [],
   modes: [],
@@ -116,7 +121,7 @@ window.config = {
         requestOptions: {
           headers: () => {
             // Strategy: Try common Supabase localStorage key formats
-            const projectRef = 'xyuxiachrjpcrmiephqa';
+            const projectRef = window.config?.supabase?.projectRef || 'YOUR_PROJECT_ID';
             const knownKeys = [
               `sb-${projectRef}-auth-token`,
               `sb-${window.location.hostname}-auth-token`,
@@ -139,7 +144,7 @@ window.config = {
                     return {
                       Authorization: `Bearer ${token}`,
                       apikey:
-                        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw',
+                        window.config?.supabase?.anonKey || '',
                     };
                   }
                 } catch (e) {
@@ -167,7 +172,7 @@ window.config = {
                     return {
                       Authorization: `Bearer ${token}`,
                       apikey:
-                        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw',
+                        window.config?.supabase?.anonKey || '',
                     };
                   }
                 } catch (e) {
@@ -180,10 +185,8 @@ window.config = {
               '[EL-OHIF] No valid Supabase auth token found. Request may be unauthorized.'
             );
             return {
-              apikey:
-                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw',
-              Authorization:
-                'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dXhpYWNocmpwY3JtaWVwaHFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzg5MTQsImV4cCI6MjA4ODYxNDkxNH0.Juyha-EgArRaPu7Sk05aqLzQPT5KrjhHFG4AK31zpBw',
+              apikey: window.config?.supabase?.anonKey || '',
+              // No authorization fallback to avoid sending static keys for unauthenticated requests
              };
           },
         },

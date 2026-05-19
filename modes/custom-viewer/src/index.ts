@@ -21,6 +21,7 @@ const NON_IMAGE_MODALITIES = ['ECG', 'SEG', 'RTSTRUCT', 'RTPLAN', 'PR', 'SR'];
 const extensionDependencies = {
   '@ohif/extension-default': '^3.0.0',
   '@ohif/extension-cornerstone': '^3.0.0',
+  '@ohif/extension-cornerstone-dicom-sr': '^3.0.0',
   // Our new custom UI extension
   '@ohif/extension-custom-ui': '^1.0.0',
 };
@@ -163,7 +164,10 @@ const modeInstance = {
   validationTags: { study: [], series: [] },
   isValidMode,
   routes: [customRoute],
-  extensions: extensionDependencies,
+  extensions: {
+    ...extensionDependencies,
+    '@ohif/extension-cornerstone-dicom-sr': '^3.0.0',
+  },
   hangingProtocol: 'default',
   sopClassHandlers,
   toolbarButtons,

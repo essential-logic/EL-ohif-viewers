@@ -1,10 +1,12 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import path from 'path';
+import fs from 'fs';
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
 import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill';
-import path from 'path';
 import writePluginImportsFile from './platform/app/.webpack/writePluginImportsFile';
-import fs from 'fs';
+
+config({ path: path.resolve(__dirname, '.env') });
 
 const SRC_DIR = path.resolve(__dirname, './platform/app/src');
 const DIST_DIR = path.resolve(__dirname, './platform/app/dist');
@@ -45,8 +47,11 @@ export default defineConfig({
       'process.env.LOCIZE_PROJECTID': JSON.stringify(process.env.LOCIZE_PROJECTID || ''),
       'process.env.LOCIZE_API_KEY': JSON.stringify(process.env.LOCIZE_API_KEY || ''),
       'process.env.REACT_APP_I18N_DEBUG': JSON.stringify(process.env.REACT_APP_I18N_DEBUG || ''),
-      'process.env.GEMINI_API_KEY': JSON.stringify(
-        process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || ''
+      'process.env.VITE_SUPABASE_URL': JSON.stringify(
+        process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
+      ),
+      'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(
+        process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
       ),
     },
   },
@@ -133,6 +138,14 @@ export default defineConfig({
     template: path.resolve(PUBLIC_DIR, 'html-templates/index.html'),
     templateParameters: {
       PUBLIC_URL,
+      SUPABASE_URL: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+      SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+      SUPABASE_PROJECT_REF:
+        process.env.VITE_SUPABASE_PROJECT_REF ||
+        (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').match(
+          /https:\/\/(.*)\.supabase\.co/
+        )?.[1] ||
+        'xyuxiachrjpcrmiephqa',
     },
   },
   server: {
